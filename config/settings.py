@@ -19,11 +19,7 @@ class RAGSettings(BaseSetting):
     CHUNKING_METHOD: str = "recursive"
     
     # Vector Store Configuration
-    PINECONE_API_KEY: Optional[str] 
-    PINECONE_ENVIRONMENT: str 
-    PINECONE_INDEX_NAME: str 
-
-
+    PINECONE_API_KEY: str
 
     # INDEX_TYPE: str = "HNSW"
     # HNSW_M: int = 16
