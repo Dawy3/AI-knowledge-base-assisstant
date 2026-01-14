@@ -101,14 +101,14 @@ class EmbeddingManager:
         
         return embedding
     
-    def get_version_metadata(self) -> Dict :
+    def get_version_metadata(self):
         """Return embedding version metadata for tracking"""
         return {
-            "model_name" : self.model_name,
-            "version" : self.version,
-            "dimension" : settings.EMBEDDING_DIMENSION,
-            "normalized" : settings.NORMALIZE_EMBEDDING,
-            "timestamp" : datetime.now().isoformat()
+            "model_name": self.model_name,
+            "version": self.version,
+            "dimension": settings.EMBEDDING_DIMENSION,
+            "normalized": settings.NORMALIZE_EMBEDDINGS,
+            "timestamp": datetime.now().isoformat()
         }
 
         
