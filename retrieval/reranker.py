@@ -46,5 +46,8 @@ class BiEncoderReranker:
             doc["rerank_score"] = float(score)
             doc["original_rank"] = i
             
-            
+        # Sort by rerank score
+        reranked = sorted(documents, key=lambda x: x["rerank_score"], reverse=True)
+        
+        return reranked[ :top_n]
         
