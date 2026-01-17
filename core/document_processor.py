@@ -17,9 +17,8 @@ import pypdf
 import docx
 
 from core.chunking import RecursiveChunker
-from core.embedding import EmbeddingManager
+from core.embeddings import EmbeddingManager
 from core.vector_store import PineconeVectorStore
-from core.hybrid_search import HybridSearchEngine
 from config.settings import settings
 
 
@@ -31,11 +30,9 @@ class DocumentProcessor:
     def __init__(
         self,
         vector_store: PineconeVectorStore,
-        hybrid_search: HybridSearchEngine,
         embedding_manager: EmbeddingManager
     ):
         self.vector_store = vector_store
-        self.hybrdi_search = hybrid_search
         self.embedding_manager = embedding_manager
         self.chunker = RecursiveChunker(
             chunk_size= settings.CHUNK_SIZE,
