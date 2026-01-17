@@ -66,7 +66,7 @@ class PineconeVectorStore:
         batch_size = 100
         for i in range(0, len(vectors_to_upserts), batch_size): # (From, To, STEP)
             batch = vectors_to_upserts[i : i + batch_size]
-            self.index.upsert(vectors=batch)
+            self.index.upsert(vectors=batch)        # ("id", "embedding vector", "metadata")
             
         self.next_id += num_elements
         return ids
