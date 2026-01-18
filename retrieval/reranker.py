@@ -1,8 +1,6 @@
 """Cross-Encoder Reranker"""
 from sentence_transformers import CrossEncoder
 from typing import List, Dict
-import numpy as np
-
 from config.settings import settings
 
 class BiEncoderReranker:

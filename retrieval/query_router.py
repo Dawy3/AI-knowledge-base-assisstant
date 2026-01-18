@@ -4,7 +4,7 @@ Query Classification & Routing
 from enum import Enum
 import json
 from typing import Dict
-import anthropic
+from openai import OpenAI
 from config.settings import settings
 
 class QueryType(Enum):
@@ -24,7 +24,8 @@ class QueryRouter:
     def __init__(self, use_llm: bool = True):
         self.use_llm = use_llm
         if use_llm:
-            self.client = anthropic.Anthropic()
+            self.client = OpenAI(api_key=settings.OPENROUTER_API_KEY, base_url= settings.OPENROUTER_BASE_URL)
+
             
     def classify_query(self, query:str) -> Dict:
         """
@@ -89,13 +90,13 @@ Respond in JSON format:
 {{"type": "RETRIEVAL|GENERATION|CLARIFICATION|REJECTION", "confidence": 0.0-1.0, "reasoning": "brief explanation"}}"""
 
         try:
-            response = self.client.messages.create(
+            response = self.client.chat.completions.create(
                 model= settings.ROUTING_MODEL,
                 max_tokens=200,
                 messages={{"role":"user", "content": prompt}}
             )
             
-            result = json.loads(response.content[0].text)
+            result = json.loads(response.choices[0].message.content)
             result["type"] = QueryRouter[result["type"]]
             return result
         

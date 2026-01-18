@@ -1,8 +1,15 @@
-from pydantic import BaseSetting
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
-import yaml
+from pydantic import Field
 
-class RAGSettings(BaseSetting):
+class RAGSettings(BaseSettings):
+    
+    model_config = SettingsConfigDict(
+        env_file= ".env",
+        env_file_encoding= "utf-8",
+        case_sensitive=True
+    )
+    
     # embedding configuration
     EMBEDDING_MODEL: str = "sentence-transformeres/all-MiniLM-L6-v2"
     EMBEDDING_DIMENSION: int = 384
@@ -18,16 +25,45 @@ class RAGSettings(BaseSetting):
     CHUNK_OVERLAP: int = 50
     CHUNKING_METHOD: str = "recursive"
     
-    # Vector Store Configuration
-    PINECONE_API_KEY: str
+    OPENROUTER_API_KEY :str = Field(..., description="Openrrouter API key")
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    LLM : str = Field(default="gpt-4o-mini", description="The generator model")
+    EMBEDDING_MODEL : str = "sentence-transformers/all-MiniLM-L6-v2"
+    DIMENSION: int = 384
+    
+    # LangSmith (Monitoring)
+    LANGSMITH_API_KEY : Optional[str] = Field(default=None, description="LangSmith API key")
+    LANGSMITH_PROJECT : str = Field(default="crm-ai-assistant", description="LangSmith API key for tracing")
+    LANGSMITH_ENDPOINT: str= Field(default="https://api.smith.langchain.com", description="LangSmith endpoint")
+    
+    # Database (PostgreSQL for checkpointing)
+    POSTGRES_HOST: str = Field(default="localhost", description="PostgerSQL host")
+    POSTGRS_PORT: int = Field(default=5432, description="PostgreSQL port")
+    POSTGRES_USER: str = Field(default="postgres", description="PostgreSQL user")
+    POSTGRES_PASSWORD: str = Field(default="postgres", description="PostgreSQL Password")
+    POSTGRES_DB: str = Field(default="crm_ai", description="PostgreSQL database name")
+    
+    @property
+    def POSTGRES_URL(self) -> str:
+        """Build PostgreSQL connection URL"""
+        return f"posgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRS_PORT}/{self.POSTGRES_DB}"
+    
+    #Redis (semantic caching and session management)
+    REDIS_HOST: str = Field(default="localhost", description="Redis host")
+    REDIS_PORT: int = Field(default=6379, description="Redis port")
+    REDIS_DB: int = Field(default=0, description="Redis database number")
+    REDIS_PASSWORD: Optional[str] = Field(default=None, description="Redis Password")
+    
+    @property
+    def REDIS_URL(self) -> str:
+        """Build Redis connection URL"""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
-    # INDEX_TYPE: str = "HNSW"
-    # HNSW_M: int = 16
-    # HNSW_EF_CONSTRUCTION: int = 200
-    # HNSW_EF_SEARCH: int = 100
+
     
     # Retrieval Configuration
-    HYBRID_ALPHA: float = 0.5 # 0=keywrod only , 1= vector only
     INITIAL_RETRIEVAL_K: int = 100
     RERANK_TOP_N: int = 5
     USE_RERANKING: bool = True
@@ -40,7 +76,7 @@ class RAGSettings(BaseSetting):
    
    # Query Routing
     ENABLE_QUERY_ROUTING: bool = True
-    ROUTING_MODEL: str = "gpt-4o-mini"
+    ROUTING_MODEL: str = "tngtech/deepseek-r1t2-chimera:free" #"gpt-4o-mini"
     
     # Monitoring & Logging
     LOG_LEVEL: str = "INFO"
@@ -48,11 +84,8 @@ class RAGSettings(BaseSetting):
     ENABLE_AB_TESTING: bool = True
     
     # Generation
-    LLM_MODEL: str = "gpt-4o"
     MAX_CONTEXT_LENGTH: int = 4000
-    TEMPERATURE: float = 0.7
     
-    class Config:
-        env_file = ".env"
+    
 
 settings = RAGSettings() 
