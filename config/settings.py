@@ -21,10 +21,13 @@ class RAGSettings(BaseSettings):
     DOCUMENT_PREFIX : str = "passage: "
     
     # Chunking configuration 
+    PINECONE_API_KEY: str 
+    
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 50
     CHUNKING_METHOD: str = "recursive"
     
+    # LLM
     OPENROUTER_API_KEY :str = Field(..., description="Openrrouter API key")
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     LLM : str = Field(default="gpt-4o-mini", description="The generator model")
@@ -72,7 +75,7 @@ class RAGSettings(BaseSettings):
     # Caching Configuration
     ENABLE_SEMANTIC_CACHE: bool = True
     CACHE_SIMILARITY_THRESHOL: float = 0.95
-    CACHE_TTL: int = 3600 # 1 hour 
+    CACHE_TTL: int = 3600 * 24 # 24 hour 
    
    # Query Routing
     ENABLE_QUERY_ROUTING: bool = True

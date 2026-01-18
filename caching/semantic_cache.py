@@ -3,16 +3,20 @@ Semantic Caching:
 - Cache similar queries and their results
 - Use embedding similarity for cache lookup
 - Reduce LLM API calls and retrieval overhead
-- TTL-based expiration
+- TTL- Based expiratin
 """
 
 import json
 import hashlib
+import logging
 from typing import Optional, Dict, Any
 import numpy as np
+from datetime import datetime
+
 import redis
-from datetime import datetime, timedelta
-import logging
+from redis.commands.search.field import VectorField, TextField
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redis.commands.search.query import Query
 
 from core.embeddings import EmbeddingManager
 from config.settings import settings
@@ -22,256 +26,233 @@ logger = logging.getLogger(__name__)
 
 class SemanticCache:
     """
-    Redis-based semantic cache with embedding similarity
-    
-    How it works:
-    1. Query comes in -> generate embedding
-    2. Search cache for similar queries (cosine similarity)
-    3. If similarity > threshold, return cached result
-    4. Otherwise, execute query and cache result
+    Redis-based semantic cache using RediSearch Vector Similarity.
+    Requires: Redis Stack (redis-stack-server)
     """
+    
     
     def __init__(
         self,
         redis_client: redis.Redis,
         embedding_manager: EmbeddingManager,
-        similarity_threshold: float = settings.CACHE_SIMILARITY_THRESHOLD,
-        ttl: int = settings.CACHE_TTL
+        similarity_threshold: float = settings.CACHE_SIMILARITY_THRESHOL,
+        ttl: int  = settings.CACHE_TTL,
+        vector_dim: int = settings.DIMENSION
     ):
         self.redis = redis_client
-        self.embedding_manager = embedding_manager
+        self.embedding_manger = embedding_manager
         self.similarity_threshold = similarity_threshold
         self.ttl = ttl
+        self.vector_dim = vector_dim
         
-        # Redis key prefixes
-        self.EMBEDDING_PREFIX = "cache:embedding:"
-        self.RESULT_PREFIX = "cache:result:"
-        self.INDEX_KEY = "cache:index"  # Sorted set for quick lookup
+        # Configuration
+        self.INDEX_NAME = "idx:semantic_cache"
+        self.PREFIX = "cache:node:"
+        
+        # Initialize the vector index
+        if settings.ENABLE_SEMANTIC_CACHE:
+            self._ensure_index_exists()
+        
+    def _ensure_index_exists(self):
+        """
+        Creates the vector search Index in redis if it doesn't exist.
+        """
+        try:
+            # check if index exists
+            self.redis.ft(self.INDEX_NAME).info()
+        except redis.exceptions.ResponseError:
+            # Index does not exists, Create it
+            logger.info(f"Creating vector index '{self.INDEX_NAME}'...")
+            
+            schema = (
+                TextField("query"),             # Store original query text
+                TextField("result_json"),       # Store the LLM response
+                VectorField(
+                    "embedding",                # The Vector column
+                    "HNSW",                     # Algorithm (Hierarchical Navigable Small World)
+                    {
+                        "TYPE" : "FLOAT32",
+                        "DIM" : self.vector_dim,
+                        "DISTANCE_METRIC": "COSINE"
+                    }
+                )
+            )
+            
+            definition = IndexDefinition(
+                prefix = [self.PREFIX],
+                index_type= IndexType.HASH
+            )
+            
+            try:
+                self.redis.ft(self.INDEX_NAME).create_index(
+                    fields=schema,
+                    definition = definition
+                )
+                logger.info("Vector index created successfully.")
+            except Exception as e:
+                logger.error(f"Failed to create vector index: {e}")
+                
         
     def _generate_cache_key(self, query: str) -> str:
         """Generate unique cache key for query"""
-        return hashlib.md5(query.encode()).hexdigest()
-    
-    def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """Calculate cosine similarity between two vectors"""
-        return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
-    
-    def get(self, query: str) -> Optional[Dict[str, Any]]:
-        """
-        Get cached result for query if similar query exists
+        # Create a deterministic key based on the query hash
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        return f"{self.PREFIX}{query_hash}"
         
-        Args:
-            query: User query
-            
-        Returns:
-            Cached result dict or None
+    def get(self, query:str) -> Optional[Dict[str, Any]]:
         """
+        Search for semantically similar queries using Redis Vector Search.
+        """
+        
         if not settings.ENABLE_SEMANTIC_CACHE:
             return None
         
         try:
-            # Generate query embedding
-            query_embedding = self.embedding_manager.embed_query(query)
+            # 1. Generate query embedding 
+            query_embedding = self.embedding_manger.embed_query(query)
             
-            # Get all cached query embeddings
-            # In production, you might want to use a vector database for this
-            # For now, we'll iterate through cached queries
-            cached_queries = self.redis.smembers(self.INDEX_KEY)
+            # 2. Prepare Vector Search Query
+            # Redis 'COSINE' distance = 1 - cosine_similarity
+            # If threshold is 0.9, we want distance < 0.1
+            distance_threshold = 1 - self.similarity_threshold
             
-            if not cached_queries:
-                logger.debug("Cache empty")
+            # Syntax: Return top 1 neighbor (KNN 1) where vector is $vec
+            # We return 'score' which represents the distance
+            q = Query(f"*=>[KNN 1 @embedding $vec AS score]").sort_by("score").return_field("result_json", "score", "query").dialect(2)
+            params = {
+                "vec" : np.array(query_embedding).astype(np.float32).tobytes()
+            } 
+            
+            # 3. Execute Search
+            results = self.redis.ft(self.INDEX_NAME).search(q, query_params= params)
+            
+            if not results.docs:
+                logger.debug("Cache MISS (No results)")
                 return None
             
-            best_match = None
-            best_similarity = 0.0
+            # 4. Cehck Threshold
+            best_match = results.docs[0]
+            score = float(best_match.score)  # This is the distance (0 to 1)
             
-            for cached_query_bytes in cached_queries:
-                cached_query = cached_query_bytes.decode('utf-8')
-                cache_key = self._generate_cache_key(cached_query)
+            if score <= distance_threshold:
+                # Calculate similarity for logging (1 - distance)
+                similarity = 1 - score
+                logger.info(f"Cache HIT: similarity={similarity:.3f}, query='{query}'")
                 
-                # Get cached embedding
-                embedding_key = f"{self.EMBEDDING_PREFIX}{cache_key}"
-                cached_embedding_json = self.redis.get(embedding_key)
-                
-                if not cached_embedding_json:
-                    # Clean up stale index entry
-                    self.redis.srem(self.INDEX_KEY, cached_query)
-                    continue
-                
-                cached_embedding = np.array(json.loads(cached_embedding_json))
-                
-                # Calculate similarity
-                similarity = self._cosine_similarity(query_embedding, cached_embedding)
-                
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = cache_key
+                result_data = json.loads(best_match.result_json)
+                result_data["cache_hit"] = True
+                result_data["cache_similarity"] = similarity
+                return result_data
             
-            # Check if best match exceeds threshold
-            if best_similarity >= self.similarity_threshold:
-                result_key = f"{self.RESULT_PREFIX}{best_match}"
-                cached_result_json = self.redis.get(result_key)
-                
-                if cached_result_json:
-                    cached_result = json.loads(cached_result_json)
-                    cached_result["cache_hit"] = True
-                    cached_result["cache_similarity"] = best_similarity
-                    
-                    logger.info(
-                        f"Cache HIT: similarity={best_similarity:.3f}, "
-                        f"query='{query}'"
-                    )
-                    
-                    return cached_result
-            
-            logger.debug(f"Cache MISS: best_similarity={best_similarity:.3f}")
+            logger.debug(f"Cache MISS: best match distance={score:.3f} (thresh: {distance_threshold:.3f})")
             return None
-            
+
         except Exception as e:
             logger.error(f"Cache get error: {e}")
             return None
-    
-    def set(self, query: str, result: Dict[str, Any]) -> bool:
-        """
-        Cache query result
         
-        Args:
-            query: User query
-            result: Result to cache
-            
-        Returns:
-            Success status
+    def set(self, query:str, result: Dict[str, Any]) -> bool:
+        """
+        Cache query result using Redis Hash
         """
         if not settings.ENABLE_SEMANTIC_CACHE:
             return False
         
         try:
-            cache_key = self._generate_cache_key(query)
+            # 1. Generate emedding 
+            query_embedding = self.embedding_manger.embed_query(query)
             
-            # Generate and cache embedding
-            query_embedding = self.embedding_manager.embed_query(query)
-            embedding_key = f"{self.EMBEDDING_PREFIX}{cache_key}"
+            # 2. Prepare data
+            key = self._generate_cache_key(query)
             
-            # Serialize embedding
-            embedding_json = json.dumps(query_embedding.tolist())
-            self.redis.setex(embedding_key, self.ttl, embedding_json)
+            # Redis vector search requires bytes for FLOAT32
+            vector_bytes = np.array(query_embedding).astype(np.float32).tobytes()
             
-            # Cache result
-            result_key = f"{self.RESULT_PREFIX}{cache_key}"
-            
-            # Add metadata
-            cached_data = {
-                "query": query,
-                "result": result,
-                "cached_at": datetime.now().isoformat(),
-                "ttl": self.ttl
+            data = {
+                "query" : query,
+                "result_json": json.dumps(result),
+                "embedding": vector_bytes,
+                "created_at" : datetime.now().isoformat()
             }
             
-            result_json = json.dumps(cached_data)
-            self.redis.setex(result_key, self.ttl, result_json)
-            
-            # Add to index
-            self.redis.sadd(self.INDEX_KEY, query)
+            # 3. Store in Redis (HSET)
+            # Pipeline ensures atomic execution of set + expire
+            pipe = self.redis.pipeline()
+            pipe.hset(key, mapping=data)
+            pipe.expire(key, self.ttl)
+            pipe.execute()
             
             logger.info(f"Cached query: '{query}'")
             return True
-            
+        
         except Exception as e:
             logger.error(f"Cache set error: {e}")
             return False
-    
+        
     def invalidate(self, query: str) -> bool:
         """
         Invalidate cached query
-        
-        Args:
-            query: Query to invalidate
-            
-        Returns:
-            Success status
         """
         try:
-            cache_key = self._generate_cache_key(query)
-            
-            # Delete embedding
-            embedding_key = f"{self.EMBEDDING_PREFIX}{cache_key}"
-            self.redis.delete(embedding_key)
-            
-            # Delete result
-            result_key = f"{self.RESULT_PREFIX}{cache_key}"
-            self.redis.delete(result_key)
-            
-            # Remove from index
-            self.redis.srem(self.INDEX_KEY, query)
-            
+            key = self._generate_cache_key(query)
+            self.redis.delete(key)
             logger.info(f"Invalidated cache for: '{query}'")
             return True
-            
         except Exception as e:
             logger.error(f"Cache invalidate error: {e}")
             return False
-    
+
     def clear(self) -> bool:
         """
-        Clear entire cache
-        
-        Returns:
-            Success status
+        Clear all cache entries
         """
         try:
-            # Get all cached queries
-            cached_queries = self.redis.smembers(self.INDEX_KEY)
+            # We can't use FLUSHDB because we might share Redis with other services.
+            # We search for keys matching our prefix.
+            cursor = '0'
+            pattern = f"{self.PREFIX}*"
+            count = 0
             
-            for cached_query_bytes in cached_queries:
-                cached_query = cached_query_bytes.decode('utf-8')
-                self.invalidate(cached_query)
+            while cursor != 0:
+                cursor, keys = self.redis.scan(cursor=cursor, match=pattern, count=100)
+                if keys:
+                    self.redis.delete(*keys)
+                    count += len(keys)
             
-            logger.info("Cache cleared")
+            logger.info(f"Cache cleared ({count} entries removed)")
             return True
-            
         except Exception as e:
             logger.error(f"Cache clear error: {e}")
             return False
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """
-        Get cache statistics
-        
-        Returns:
-            Cache stats dict
+        Get cache statistics from the Index
         """
         try:
-            cached_queries = self.redis.smembers(self.INDEX_KEY)
-            
+            info = self.redis.ft(self.INDEX_NAME).info()
             return {
-                "total_cached_queries": len(cached_queries),
+                "total_indexed_docs": info.get("num_docs"),
                 "similarity_threshold": self.similarity_threshold,
                 "ttl_seconds": self.ttl,
+                "vector_dim": self.vector_dim,
                 "enabled": settings.ENABLE_SEMANTIC_CACHE
             }
-            
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
-            return {
-                "error": str(e)
-            }
-    
+            return {"error": str(e)}
+
     def warmup(self, common_queries: list[str], results: list[Dict]) -> int:
         """
-        Pre-populate cache with common queries
-        
-        Args:
-            common_queries: List of common queries
-            results: Corresponding results
-            
-        Returns:
-            Number of queries cached
+        Pre-populate cache
         """
         count = 0
-        
         for query, result in zip(common_queries, results):
             if self.set(query, result):
                 count += 1
-        
         logger.info(f"Cache warmed up with {count} queries")
         return count
+            
+        
+        
+    

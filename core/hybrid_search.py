@@ -1,6 +1,6 @@
 from rank_bm25 import BM25Okapi
 import numpy as np
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 
 from core.vector_store import PineconeVectorStore
 
