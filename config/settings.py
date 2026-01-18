@@ -22,6 +22,7 @@ class RAGSettings(BaseSettings):
     
     # Chunking configuration 
     PINECONE_API_KEY: str 
+    PINECONE_INDEX_NAME: str = 'my-app-index'
     
     CHUNK_SIZE: int = 512
     CHUNK_OVERLAP: int = 50
@@ -31,7 +32,7 @@ class RAGSettings(BaseSettings):
     OPENROUTER_API_KEY :str = Field(..., description="Openrrouter API key")
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     LLM : str = Field(default="gpt-4o-mini", description="The generator model")
-    EMBEDDING_MODEL : str = "sentence-transformers/all-MiniLM-L6-v2"
+    TEMPERATURE : float = 0.7
     DIMENSION: int = 384
     
     # LangSmith (Monitoring)

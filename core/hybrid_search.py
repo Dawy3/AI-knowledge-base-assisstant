@@ -25,12 +25,14 @@ class HybridSearchEngine:
         
     def index_documents(self, doc_ids: List[int], texts: List[str]):
         """Index Document for keyword search"""
-        self.doc_ids = doc_ids
-        self.corpus = texts
+        # Append new documents to existing corpus
+        self.doc_ids.extend(doc_ids)
+        self.corpus.extend(texts)
         
-        # Tokenize and build BM25 index
-        tokenized_corpus = [doc.lower().split() for doc in texts]
-        self.bm25 = BM25Okapi(tokenized_corpus)
+        # Rebuild BM25 index with all documents
+        if self.corpus:
+            tokenized_corpus = [doc.lower().split() for doc in self.corpus]
+            self.bm25 = BM25Okapi(tokenized_corpus)
         
     
     def search(
@@ -38,7 +40,7 @@ class HybridSearchEngine:
         query: str,
         query_embedding: np.ndarray,
         k: int = 100,
-        filter_func: Optional[callable] = None
+        filter_dict: Optional[Dict] = None
     ) -> List[Dict]:
         """
         Hybrid Search combining vector, keyword, and recency signals.
@@ -48,16 +50,21 @@ class HybridSearchEngine:
         vector_ids, vector_scores = self.vector_store.search(
             query_embedding,
             k=k,
-            filter_func= filter_func
+            filter_dict= filter_dict
         ) 
         
-        # 2. Keyword search (BM25)
-        tokenized_query = query.lower().split()
-        keyword_scores = self.bm25.get_scores(tokenized_query)
+        # 2. Keyword search (BM25) - only if documents have been indexed
+        if self.bm25 is None or not self.doc_ids:
+            # No documents indexed yet, use only vector search
+            keyword_scores = []
+            keyword_scores_norm = []
+        else:
+            tokenized_query = query.lower().split()
+            keyword_scores = self.bm25.get_scores(tokenized_query)
+            keyword_scores_norm = self._normalize_scores(keyword_scores)
         
         # 3. Normalize base score to [0, 1]
         vector_scores_norm = self._normalize_scores(vector_scores)
-        keyword_scores_norm = self._normalize_scores(keyword_scores)
         
         # Temporary storage for fusion
         results = {}
@@ -69,22 +76,23 @@ class HybridSearchEngine:
                 "vector_score" : score,
                 "keyword_score": 0.0,
                 "recency_score": 0.0,
-                "metadata" : self.vector_store.id_to_metadata.get(doc_id, {})
+                "metadata" : {}  # Metadata will be retrieved from Pinecone if needed
             }
             
         # --- Stage B: Keyword Contribution ---
-        for doc_id, score in zip(self.doc_ids, keyword_scores_norm):
-            if doc_id not in results:
-                # If doc was not found by vector search, init it
-                results[doc_id] = {
-                    "id" : doc_id,
-                    "vector_score" : 0.0,
-                    "keyword_score": score,
-                    "recency_score": 0.0,
-                    "metadata" : self.vector_store.id_to_metadata.get(doc_id, {})
-                }
-            else:
-                results[doc_id]["keyword_score"] = score
+        if keyword_scores_norm and self.doc_ids:
+            for doc_id, score in zip(self.doc_ids, keyword_scores_norm):
+                if doc_id not in results:
+                    # If doc was not found by vector search, init it
+                    results[doc_id] = {
+                        "id" : doc_id,
+                        "vector_score" : 0.0,
+                        "keyword_score": score,
+                        "recency_score": 0.0,
+                        "metadata" : {}
+                    }
+                else:
+                    results[doc_id]["keyword_score"] = score
                 
         # --- Stage C: Recency Contribution ---
         # Extract timestamps and normalize them to create RecencyScore
