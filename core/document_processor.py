@@ -19,6 +19,7 @@ import docx
 from core.chunking import RecursiveChunker
 from core.embeddings import EmbeddingManager
 from core.vector_store import PineconeVectorStore
+from core.hybrid_search import HybridSearchEngine
 from config.settings import settings
 
 
@@ -30,10 +31,12 @@ class DocumentProcessor:
     def __init__(
         self,
         vector_store: PineconeVectorStore,
-        embedding_manager: EmbeddingManager
+        embedding_manager: EmbeddingManager,
+        hybrid_search: HybridSearchEngine
     ):
         self.vector_store = vector_store
         self.embedding_manager = embedding_manager
+        self.hybrid_search = hybrid_search
         self.chunker = RecursiveChunker(
             chunk_size= settings.CHUNK_SIZE,
             chunk_overlap= settings.CHUNK_OVERLAP
@@ -110,7 +113,7 @@ class DocumentProcessor:
         chunk_ids = self.vector_store.add_document(embeddings, chunk_metadata)
         
         # Index for hybrid search (keyword) 'BM25'
-        self.hybrdi_search.index_documents(chunk_ids, chunk_texts)
+        self.hybrid_search.index_documents(chunk_ids, chunk_texts)
         
         # Mark as processed
         self.processed_docs.add(doc_id)
@@ -225,7 +228,7 @@ class DocumentProcessor:
             "success" : 0,
             "skipped" : 0,
             "errors" : 0,
-            "details": 0
+            "details": []
         }
         
         for doc in documents:

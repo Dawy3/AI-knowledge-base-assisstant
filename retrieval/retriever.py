@@ -104,7 +104,7 @@ class AdvancedRetriever:
                 query= q,
                 query_embedding= query_embedding,
                 k = settings.INITIAL_RETRIEVAL_K,
-                filter_func= self._create_filter_func(filter_dict) if filter_dict else None
+                filter_dict= filter_dict
             )
             
             all_results.append(results)
@@ -143,21 +143,6 @@ class AdvancedRetriever:
             "results": final_results
         }
     
-    def _create_filter_func(self, filter_dict: Dict) -> callable:
-        """
-        Create filter function from Pinecone filter dict
-        Note: This is a placeholder - actual filtering happens in Pinecone
-        """
-        def filter_func(metadata: Dict) -> bool:
-            # This would be used for post-filtering if needed
-            # In production with Pinecone, pre-filtering is preferred
-            for key, condition in filter_dict.itmes(): 
-                if "@eq" in condition:
-                    if metadata.get(key) != condition["@eq"]: # If this chunk’s metadata does NOT match the filter → reject it
-                        return False
-            return True
-        
-        return filter_func
     
     def _get_chunk_content(self, chunk_id: int) -> str:
         """
