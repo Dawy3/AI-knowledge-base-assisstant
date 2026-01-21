@@ -191,7 +191,7 @@ class BaseChunker(ABC):
                 continue
             
             start_char = start_positions[i] if start_positions else 0
-            end_char = start_char + len(texts)
+            end_char = start_char + len(text)
             
             
             chunk = Chunk(
@@ -258,7 +258,7 @@ class FixedChunker(BaseChunker):
             i += step
         
         return self._create_chunks_with_metadata(
-            chunk_text, document_id, source_file, metadata, start_positions
+            chunks_text, document_id, source_file, metadata, start_positions
         )
         
     
@@ -332,7 +332,7 @@ class RecursiveChunker(BaseChunker):
                      for i, s in enumerate(splits)]
         
         else:
-            # Character-level split as last resot 
+            # Character-level split as last resort 
             return [text[i:i+ self.chunk_size]
                     for i in range(0, len(text), self.chunk_size)]
             
@@ -712,8 +712,8 @@ class PageChunker(BaseChunker):
                     metadata=metadata or {},
                 )
                 chunks.append(chunk)
-                
-        # Updae total chunks
+
+        # Update total chunks
         for i, chunk in enumerate(chunks):
             chunk.chunk_index = i
             chunk.total_chunks = len(chunks)
