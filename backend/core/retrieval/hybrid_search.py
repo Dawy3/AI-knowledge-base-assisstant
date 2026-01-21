@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class FusionMethod(str, Enum):
     """Score fusion methods."""
     
-    WEIGHTED_SUM = "weighted_sum"       # Simple weighted addtion
+    WEIGHTED_SUM = "weighted_sum"       # Simple weighted addition
     RECIPROCAL_RANK = "rrf"             # Reciprocal Rank Fusion
     RELATIVE_SCORE = "relative_score"   # Relative score Fusion
     
@@ -47,8 +47,8 @@ class HybridSearchConfig:
     
     FOCUS: Score = (Vector * 5) + (BM25 * 3) + (Recency * 0.2)
     """
-    
-     # Score weights - CRITICAL for quality
+
+    # Score weights - CRITICAL for quality
     vector_weight: float = 5.0    # Weight for vector similarity
     bm25_weight: float = 3.0      # Weight for BM25 keyword match
     recency_weight: float = 0.2   # Weight for document recency
@@ -162,7 +162,7 @@ class ScoreFusion:
         return (
             vector_score * config.vector_weight +
             bm25_score * config.bm25_weight +
-            recency_score * config.bm25_weight
+            recency_score * config.recency_weight
         )
     
     @staticmethod
@@ -217,8 +217,8 @@ class HybridSearch:
     def __init__(
         self,
         vector_search: VectorSearch,
-        bm25_seach : BM25Search,
-        config : Optional[HybridSearchConfig] = None,
+        bm25_search: BM25Search,
+        config: Optional[HybridSearchConfig] = None,
     ):
         """
         
@@ -230,7 +230,7 @@ class HybridSearch:
             config: Hybrid search configuration
         """
         self.vector_search = vector_search
-        self.bm25_search = bm25_seach
+        self.bm25_search = bm25_search
         self.config = config or HybridSearchConfig()
         
         self._fusion = ScoreFusion()
@@ -246,9 +246,9 @@ class HybridSearch:
         self,
         query: str,
         query_embedding: list[float],
-        top_k : Optional[int] = None,
-        filter : Optional[dict] = None,
-    ) -> HybridSearchResult:
+        top_k: Optional[int] = None,
+        filter: Optional[dict] = None,
+    ) -> HybridSearchResponse:
         """
         Perform hybrid search combining vector and BM25.
         
@@ -295,7 +295,7 @@ class HybridSearch:
         )
         
         # Sort by combined score and take top-k
-        fused_results.sort(key=lambda x:x.combined_score, reversed= True)
+        fused_results.sort(key=lambda x:x.combined_score, reverse=True)
         final_results = fused_results[:final_k]
         
         # Calculate statistics
@@ -329,14 +329,14 @@ class HybridSearch:
     def _fuse_results(
         self,
         vector_results: list[VectorSearchResult],
-        bm25_results : list[BM25SearchResult]
+        bm25_results: list[BM25SearchResult]
     ) -> list[HybridSearchResult]:
         """
         Fuse results from vector and BM25 search.
         """
         # Build lookup dictionaries
-        vectro_by_id : dict[str, tuple[VectorSearchResult, int]] = {
-            r.chunk_id: (r, i) for i , r in enumerate(vector_results)
+        vector_by_id: dict[str, tuple[VectorSearchResult, int]] = {
+            r.chunk_id: (r, i) for i, r in enumerate(vector_results)
         }
         bm25_by_id: dict[str, tuple[BM25SearchResult, int]] = {
             r.chunk_id: (r, i) for i, r in enumerate(bm25_results)
@@ -353,19 +353,19 @@ class HybridSearch:
             ))
             norm_bm25 = dict(zip(
                 [r.chunk_id for r in bm25_results],
-                self._fusion.normalize_scores(bm25_results)
+                self._fusion.normalize_scores(bm25_scores)
             ))
         else:
             norm_vector = {r.chunk_id: r.score for r in vector_results}
             norm_bm25 = {r.chunk_id: r.score for r in bm25_results}
-            
+
         # Collect all unique chunk IDs
-        all_ids = set(vectro_by_id.keys()) | set(bm25_by_id.keys())
+        all_ids = set(vector_by_id.keys()) | set(bm25_by_id.keys())
         
         fused = []
         
         for chunk_id in all_ids:
-            vector_info = vectro_by_id.get(chunk_id)
+            vector_info = vector_by_id.get(chunk_id)
             bm25_info = bm25_by_id.get(chunk_id)
             
             # Get score
@@ -402,8 +402,8 @@ class HybridSearch:
             # Get content and metadata from whichever source has it
             content = ""
             metadata = {}
-            documnt_id = ""
-            
+            document_id = ""
+
             if vector_info:
                 content = vector_info[0].content
                 metadata = vector_info[0].metadata
@@ -439,8 +439,8 @@ class HybridSearch:
             return 0.0
         
         try:
-            if isinstance(timestamp, str) :
-                doc_time = datetime.fromisocalendar(timestamp.replace('Z', '+00:00'))
+            if isinstance(timestamp, str):
+                doc_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
             elif isinstance(timestamp, (int, float)):
                 doc_time = datetime.fromtimestamp(timestamp)
             else:
@@ -578,6 +578,6 @@ def create_hybrid_search(
     
     return HybridSearch(
         vector_search=vector_search,
-        bm25_seach=bm25_search,
-        config = config
+        bm25_search=bm25_search,
+        config=config
     )
