@@ -361,10 +361,10 @@ class EmbeddingGenerator:
         start_time = time.time()
 
         if not texts:
-            return EmbeddingModel(
+            return EmbeddingResult(
                 embeddings=[],
-                model_id = self.model_id,
-                dimensions= self.model.dimensions,                
+                model_id=self.model_id,
+                dimensions=self.model.dimensions,
             )
             
         # Prepare cache keys
@@ -377,9 +377,9 @@ class EmbeddingGenerator:
         if use_cache and self._cache:
             cached_embeddings = await self._cache.get_many(cache_keys)
             
-            for i , (text, key) in enumerate(zip(texts, cache_keys)):
+            for i, (text, key) in enumerate(zip(texts, cache_keys)):
                 if key not in cached_embeddings:
-                    texts_to_embed((i, text))
+                    texts_to_embed.append((i, text))
                     
         else:
             texts_to_embed = list(enumerate(texts))
