@@ -172,7 +172,7 @@ class DocumentProcessor:
         file_paths: list[str],
         skip_errors: bool = True,
     ) -> list[ProcessedDocument]:
-        """Process multiple documents."""
+        """Process multiple documents.""" 
         results = []
         
         for path in file_paths:
