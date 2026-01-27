@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import Distance, HnswConfigDiff, PointStruct, VectorParams
 
 logger = logging.getLogger(__name__)
 
@@ -30,20 +30,28 @@ class QdrantStore:
         collection: str = "documents",
         dimension: int = 1536,
         distance: str = "cosine",
+        hnsw_m: int = 16,
+        hnsw_ef_construct: int = 100,
     ):
         self.client = QdrantClient(url=url, api_key=api_key)
         self.collection = collection
         self.dimension = dimension
-        
+
         # Map distance metric
         distance_map = {
             "cosine" : Distance.COSINE,     # Default
             "euclidean": Distance.EUCLID,
             "dot": Distance.DOT
         }
-        
+
         self.distance = distance_map.get(distance, Distance.COSINE)
-        
+
+        # HNSW index configuration
+        self.hnsw_config = HnswConfigDiff(
+            m=hnsw_m,                    # Number of edges per node (higher = better recall, more memory)
+            ef_construct=hnsw_ef_construct,  # Search depth during indexing (higher = better quality, slower build)
+        )
+
         self._ensure_collection()
         logger.info(f"QdrantStore initialized: {collection}")
         
@@ -58,6 +66,7 @@ class QdrantStore:
                     size=self.dimension,
                     distance=self.distance
                 ),
+                hnsw_config=self.hnsw_config,
             )
             logger.info(f"Created collection: {self.collection}")
             
