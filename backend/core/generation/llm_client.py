@@ -24,6 +24,8 @@ from typing import AsyncIterator, Optional
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -72,30 +74,31 @@ class LLMClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        tier1_model: str = "gpt-3.5-turbo",
-        tier2_model: str = "gpt-4o-mini",
-        tier3_model: str = "gpt-4-turbo-preview",
-        fallback_model: str = "gpt-3.5-turbo",
-        timeout: float = 30.0,
-        max_retries: int = 3,
+        tier1_model: Optional[str] = None,
+        tier2_model: Optional[str] = None,
+        tier3_model: Optional[str] = None,
+        fallback_model: Optional[str] = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
     ):
         """
         Args:
-            api_key: OpenAI API key
-            tier1_model: Tier 1 model for simple queries (70%)
-            tier2_model: Tier 2 model for moderate queries (25%)
-            tier3_model: Tier 3 model for complex queries (5%)
+            api_key: OpenAI API key (defaults to config)
+            tier1_model: Tier 1 model for simple queries (defaults to config)
+            tier2_model: Tier 2 model for moderate queries (defaults to config)
+            tier3_model: Tier 3 model for complex queries (defaults to config)
             fallback_model: Fallback on primary failure
-            timeout: Request timeout in seconds
-            max_retries: Max retry attempts
+            timeout: Request timeout in seconds (defaults to config)
+            max_retries: Max retry attempts (defaults to config)
         """
-        self.api_key = api_key
-        self.tier1_model = tier1_model
-        self.tier2_model = tier2_model
-        self.tier3_model = tier3_model
-        self.fallback_model = fallback_model
-        self.timeout = timeout
-        self.max_retries = max_retries
+        # Use config defaults if not specified
+        self.api_key = api_key or settings.llm.openai_api_key
+        self.tier1_model = tier1_model or settings.llm.local_model_name
+        self.tier2_model = tier2_model or "gpt-4o-mini"
+        self.tier3_model = tier3_model or settings.llm.openai_model
+        self.fallback_model = fallback_model or self.tier1_model
+        self.timeout = timeout if timeout is not None else settings.llm.request_timeout
+        self.max_retries = max_retries if max_retries is not None else settings.llm.max_retries
         
         # Tier model mapping
         self._tier_models = {

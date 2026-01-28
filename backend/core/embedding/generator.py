@@ -15,7 +15,7 @@ Implementation follows best practices:
 import asyncio
 import hashlib
 import logging
-import os 
+import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -25,7 +25,7 @@ from openai import AsyncOpenAI
 from sentence_transformers import SentenceTransformer
 import cohere
 
-
+from ..config import settings
 from .models import EmbeddingModel, EmbeddingModelProvider, get_embedding_model
 
 logger = logging.getLogger(__name__)
@@ -269,24 +269,34 @@ class EmbeddingGenerator:
     """
     def __init__(
         self,
-        model_key: str = "openai/text-embedding-3-small",
+        model_key: Optional[str] = None,
         cache: Optional[EmbeddingCache] = None,
-        enable_cache: bool = True,
+        enable_cache: Optional[bool] = None,
         batch_size: Optional[int] = None,
-        max_retries: int = 3,
+        max_retries: Optional[int] = None,
         retry_delay: float = 1.0,
     ):
         """
         Initialize embedding generator.
-        
+
         Args:
-            model_key: Model identifier from supported models
+            model_key: Model identifier from supported models (defaults to config)
             cache: Optional cache implementation
-            enable_cache: Whether to use caching
-            batch_size: Override default batch size
-            max_retries: Maximum retry attempts
+            enable_cache: Whether to use caching (defaults to config)
+            batch_size: Override default batch size (defaults to config)
+            max_retries: Maximum retry attempts (defaults to config)
             retry_delay: Initial retry delay in seconds
         """
+        # Use config defaults if not specified
+        if model_key is None:
+            model_key = f"{settings.embedding.model_provider}/{settings.embedding.model_name}"
+        if enable_cache is None:
+            enable_cache = settings.cache.embedding_cache_enabled
+        if batch_size is None:
+            batch_size = settings.embedding.batch_size
+        if max_retries is None:
+            max_retries = settings.embedding.max_retries
+
         self.model = get_embedding_model(model_key)
         self.enable_cache = enable_cache
         self.batch_size = batch_size or self.model.batch_size
@@ -520,21 +530,21 @@ class EmbeddingGenerator:
         
         
 def create_embedding_generator(
-    model_key: str = "openai/text-embedding-3-small",
+    model_key: Optional[str] = None,
     **kwargs,
 ) -> EmbeddingGenerator:
     """
     Factory function to create an embedding generator.
-    
+
     Args:
-        model_key: Model identifier
+        model_key: Model identifier (defaults to config settings)
         **kwargs: Additional arguments for EmbeddingGenerator
-        
+
     Returns:
         Configured EmbeddingGenerator instance
-        
+
     Example:
-        >>> generator = create_embedding_generator("openai/text-embedding-3-small")
+        >>> generator = create_embedding_generator()  # Uses config
         >>> result = await generator.embed_texts(["Hello world"])
     """
     return EmbeddingGenerator(model_key=model_key, **kwargs)

@@ -14,10 +14,13 @@ OpenRouter free models for testing:
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
 from openai import AsyncOpenAI
+
+from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -59,43 +62,61 @@ OPENROUTER_FREE_MODELS = [
 class OpenAIClient:
     """
     OpenAI-compatible API client.
-    
+
     Works with OpenAI, OpenRouter, and any compatible endpoint.
-    
+    Uses config settings by default if api_key not provided.
+
     Usage:
+        # Use config settings (recommended)
+        client = OpenAIClient()
+
         # OpenAI
         client = OpenAIClient(api_key="sk-...", provider="openai")
-        
+
         # OpenRouter (for free testing)
         client = OpenAIClient(api_key="sk-or-...", provider="openrouter")
-        
+
         # Custom endpoint
         client = OpenAIClient(api_key="...", base_url="http://localhost:8000/v1")
-        
+
         response = await client.chat("What is RAG?")
     """
-    
+
     def __init__(
         self,
-        api_key: str,
-        provider: str = "openai",  # "openai", "openrouter", "local"
+        api_key: Optional[str] = None,
+        provider: Optional[str] = None,
         base_url: Optional[str] = None,
         default_model: Optional[str] = None,
-        timeout: float = 30.0,
+        timeout: Optional[float] = None,
     ):
+        # Use config settings if not provided
+        if api_key is None:
+            api_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+
+        if provider is None:
+            # Auto-detect provider from environment
+            if os.getenv("OPENROUTER_API_KEY"):
+                provider = "openrouter"
+            else:
+                provider = "openai"
+
+        if timeout is None:
+            timeout = settings.llm.request_timeout
+
         # Get preset config
         preset = PRESETS.get(provider, PRESETS["openai"])
-        
-        self.base_url = base_url or preset["base_url"]
-        self.default_model = default_model or preset["default_model"]
+
+        self.base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or preset["base_url"]
+        self.default_model = default_model or settings.llm.openai_model or preset["default_model"]
         self.provider = provider
-        
+
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url=self.base_url,
             timeout=timeout,
         )
-        
+
         logger.info(f"OpenAIClient initialized: provider={provider}, model={self.default_model}")
 
 

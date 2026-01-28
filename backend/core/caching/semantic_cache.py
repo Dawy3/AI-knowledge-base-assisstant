@@ -20,6 +20,8 @@ from typing import Any, Callable, Optional
 import numpy as np
 import redis
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,9 +72,9 @@ class SemanticCache:
         embed_func: Callable[[str], list[float]],
         redis_client: Optional[redis.Redis] = None,
         reranker: Optional[Any] = None,
-        similarity_threshold: float = 0.95,  # Start conservative
+        similarity_threshold: Optional[float] = None,
         rerank_threshold: float = 0.7,
-        ttl_seconds: int = 3600,
+        ttl_seconds: Optional[int] = None,
         max_cache_size: int = 10000,
         prefix: str = "sem_cache",
     ):
@@ -81,18 +83,19 @@ class SemanticCache:
             embed_func: Function to embed queries
             redis_client: Redis client (optional, uses in-memory if None)
             reranker: Cross-encoder reranker for Layer 3 validation
-            similarity_threshold: Threshold for semantic match (start at 0.95)
+            similarity_threshold: Threshold for semantic match (defaults to config)
             rerank_threshold: Threshold for cross-encoder validation
-            ttl_seconds: Cache TTL
+            ttl_seconds: Cache TTL (defaults to config)
             max_cache_size: Max entries in cache
             prefix: Redis key prefix
         """
         self.embed_func = embed_func
         self.redis = redis_client
         self.reranker = reranker
-        self.similarity_threshold = similarity_threshold
+        # Use config defaults if not specified
+        self.similarity_threshold = similarity_threshold if similarity_threshold is not None else settings.cache.semantic_cache_threshold
         self.rerank_threshold = rerank_threshold
-        self.ttl = ttl_seconds
+        self.ttl = ttl_seconds if ttl_seconds is not None else settings.cache.semantic_cache_ttl
         self.max_size = max_cache_size
         self.prefix = prefix
         

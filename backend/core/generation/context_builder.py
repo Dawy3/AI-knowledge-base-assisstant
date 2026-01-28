@@ -10,17 +10,26 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ContextConfig:
-    """Context sizing configuration."""
-    simple_max_tokens: int = 800
-    complex_max_tokens: int = 4000
+    """Context sizing configuration. Defaults loaded from settings."""
+    simple_max_tokens: int = None
+    complex_max_tokens: int = None
     default_max_tokens: int = 2000
     max_chunks: int = 10
     chars_per_token: int = 4  # Rough estimate
+
+    def __post_init__(self):
+        """Load defaults from config if not specified."""
+        if self.simple_max_tokens is None:
+            self.simple_max_tokens = settings.context.simple_query_tokens
+        if self.complex_max_tokens is None:
+            self.complex_max_tokens = settings.context.complex_query_tokens
 
 
 class ContextBuilder:

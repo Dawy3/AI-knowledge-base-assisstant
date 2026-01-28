@@ -8,9 +8,13 @@ TARGET: Faithfulness > 0.85, Answer Relevancy > 0.80
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file
 
 from ragas import evaluate
 from ragas.metrics import (
@@ -21,7 +25,128 @@ from ragas.metrics import (
 )
 from datasets import Dataset
 
+from backend.core.config import settings
+
 logger = logging.getLogger(__name__)
+
+# Conditional imports for optional dependencies
+try:
+    from langchain_openai import ChatOpenAI
+    HAS_LANGCHAIN_OPENAI = True
+except ImportError:
+    HAS_LANGCHAIN_OPENAI = False
+    logger.warning("langchain-openai not installed")
+
+try:
+    from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+    HAS_LANGCHAIN_HF = True
+except ImportError:
+    HAS_LANGCHAIN_HF = False
+    logger.debug("langchain-huggingface not installed (optional)")
+
+try:
+    from transformers import pipeline as hf_pipeline
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+
+
+def get_ragas_llm():
+    """
+    Get LLM for Ragas evaluation based on config settings.
+
+    Priority:
+    1. OpenRouter (if OPENROUTER_API_KEY set) - FREE models available
+    2. OpenAI (if OPENAI_API_KEY set)
+    3. HuggingFace local (if available)
+
+    Supports:
+    - OpenRouter (free models like llama, gemma, etc.)
+    - OpenAI
+    - HuggingFace (local, free)
+    """
+    if not HAS_LANGCHAIN_OPENAI:
+        logger.error("langchain-openai required. Run: pip install langchain-openai")
+        return None
+
+    # Check for OpenRouter first (free models available!)
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
+    if openrouter_key:
+        try:
+            logger.info(f"Using OpenRouter LLM: {settings.llm.openai_model}")
+            return ChatOpenAI(
+                model=settings.llm.openai_model,
+                api_key=openrouter_key,
+                base_url=openrouter_base,
+            )
+        except Exception as e:
+            logger.warning(f"OpenRouter LLM setup failed: {e}")
+
+    # Check for OpenAI
+    openai_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY")
+    if openai_key and openai_key != "sk-your-openai-api-key":
+        try:
+            logger.info(f"Using OpenAI LLM: {settings.llm.openai_model}")
+            return ChatOpenAI(
+                model=settings.llm.openai_model,
+                api_key=openai_key,
+            )
+        except Exception as e:
+            logger.warning(f"OpenAI LLM setup failed: {e}")
+
+    # Fallback to HuggingFace local models (completely free, runs locally)
+    if HAS_LANGCHAIN_HF and HAS_TRANSFORMERS:
+        try:
+            model_name = os.getenv("RAGAS_LLM_MODEL", "google/flan-t5-small")
+            logger.info(f"Using HuggingFace local LLM: {model_name}")
+            pipe = hf_pipeline("text2text-generation", model=model_name, max_length=512)
+            return HuggingFacePipeline(pipeline=pipe)
+        except Exception as e:
+            logger.warning(f"HuggingFace LLM setup failed: {e}")
+
+    logger.error("No LLM available. Set OPENROUTER_API_KEY (free) or OPENAI_API_KEY")
+    return None
+
+
+def get_ragas_embeddings():
+    """
+    Get embeddings for Ragas evaluation based on config settings.
+
+    Priority:
+    1. HuggingFace (free, runs locally)
+    2. OpenAI (if api key available)
+    """
+    provider = settings.embedding.model_provider.lower()
+
+    # For HuggingFace/free models
+    if provider in ("huggingface", "local") and HAS_LANGCHAIN_HF:
+        try:
+            logger.info(f"Using HuggingFace embeddings: {settings.embedding.model_name}")
+            return HuggingFaceEmbeddings(
+                model_name=settings.embedding.model_name,
+            )
+        except Exception as e:
+            logger.warning(f"HuggingFace embeddings setup failed: {e}")
+
+    # For OpenAI
+    openai_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY")
+    if openai_key and openai_key != "sk-your-openai-api-key" and HAS_LANGCHAIN_OPENAI:
+        try:
+            from langchain_openai import OpenAIEmbeddings
+            logger.info(f"Using OpenAI embeddings: {settings.embedding.model_name}")
+            return OpenAIEmbeddings(
+                model=settings.embedding.model_name,
+                api_key=openai_key,
+            )
+        except Exception as e:
+            logger.warning(f"OpenAI embeddings setup failed: {e}")
+
+    logger.warning("No embeddings available, Ragas will use defaults")
+    return None
+
+    return None
 
 
 @dataclass
@@ -100,17 +225,37 @@ class GenerationDataset:
 class GenerationEvaluator:
     """Evaluator for generation quality using Ragas."""
 
-    def __init__(self, metrics: Optional[list] = None):
+    def __init__(self, metrics: Optional[list] = None, use_config: bool = True):
+        """
+        Initialize evaluator.
+
+        Args:
+            metrics: Ragas metrics to evaluate
+            use_config: If True, use config settings for LLM/embeddings
+        """
         self.metrics = metrics or [
             faithfulness,
             answer_relevancy,
             context_precision,
             context_recall,
         ]
+        self.use_config = use_config
 
     def evaluate(self, dataset: GenerationDataset, llm=None, embeddings=None) -> GenerationMetrics:
-        """Run Ragas evaluation."""
+        """
+        Run Ragas evaluation.
+
+        If llm/embeddings not provided and use_config=True, will use config settings.
+        For free evaluation, set EMBEDDING__MODEL_PROVIDER=huggingface in .env
+        """
         hf_dataset = dataset.to_hf_dataset()
+
+        # Use config-based LLM/embeddings if not provided
+        if self.use_config:
+            if llm is None:
+                llm = get_ragas_llm()
+            if embeddings is None:
+                embeddings = get_ragas_embeddings()
 
         # Run evaluation
         kwargs = {}

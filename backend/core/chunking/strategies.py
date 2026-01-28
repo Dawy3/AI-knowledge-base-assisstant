@@ -22,6 +22,7 @@ from langchain_text_splitters import (
     TokenTextSplitter,
 )
 
+from ..config import settings
 from .preprocessor import TextPreprocessor
 
 
@@ -95,9 +96,9 @@ class Chunker:
 
     def __init__(
         self,
-        strategy: ChunkingStrategy | str = ChunkingStrategy.RECURSIVE,
-        chunk_size: int = 512,
-        chunk_overlap: int = 50,
+        strategy: Optional[ChunkingStrategy | str] = None,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
         page_separator: Optional[str] = None,
         embedding_func: Optional[Callable[[list[str]], list[list[float]]]] = None,
     ):
@@ -105,12 +106,20 @@ class Chunker:
         Initialize chunker.
 
         Args:
-            strategy: Chunking strategy to use
-            chunk_size: Target chunk size in tokens
-            chunk_overlap: Overlap between chunks in tokens
+            strategy: Chunking strategy to use (defaults to config)
+            chunk_size: Target chunk size in tokens (defaults to config)
+            chunk_overlap: Overlap between chunks in tokens (defaults to config)
             page_separator: Custom page separator for page-level chunking
             embedding_func: Embedding function for semantic chunking
         """
+        # Use config defaults if not specified
+        if strategy is None:
+            strategy = settings.chunking.strategy
+        if chunk_size is None:
+            chunk_size = settings.chunking.chunk_size
+        if chunk_overlap is None:
+            chunk_overlap = settings.chunking.chunk_overlap
+
         if isinstance(strategy, str):
             strategy = ChunkingStrategy(strategy.lower())
 
@@ -249,25 +258,25 @@ class Chunker:
 
 
 def get_chunker(
-    strategy: ChunkingStrategy | str = "recursive",
-    chunk_size: int = 512,
-    chunk_overlap: int = 50,
+    strategy: Optional[ChunkingStrategy | str] = None,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
     **kwargs,
 ) -> Chunker:
     """
     Factory function to get a chunker by strategy name.
 
     Args:
-        strategy: Chunking strategy to use
-        chunk_size: Target chunk size in tokens (default: 512)
-        chunk_overlap: Overlap between chunks (default: 50)
+        strategy: Chunking strategy to use (defaults to config)
+        chunk_size: Target chunk size in tokens (defaults to config)
+        chunk_overlap: Overlap between chunks (defaults to config)
         **kwargs: Additional arguments for specific strategies
 
     Returns:
         Configured Chunker instance
 
     Example:
-        >>> chunker = get_chunker("recursive", chunk_size=512)
+        >>> chunker = get_chunker()  # Uses config settings
         >>> chunks = chunker.chunk(text, document_id="doc123")
     """
     return Chunker(

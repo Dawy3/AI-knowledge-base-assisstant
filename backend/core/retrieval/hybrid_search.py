@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
+from ..config import settings
 from .vector_search import VectorSearch, VectorSearchResult
 from .bm25_search import BM25Search, BM25SearchResult
 
@@ -44,33 +45,49 @@ class FusionMethod(str, Enum):
 class HybridSearchConfig:
     """
     Configuration for hybrid search.
-    
+
     FOCUS: Score = (Vector * 5) + (BM25 * 3) + (Recency * 0.2)
+    Defaults are loaded from settings.retrieval config.
     """
 
-    # Score weights - CRITICAL for quality
-    vector_weight: float = 5.0    # Weight for vector similarity
-    bm25_weight: float = 3.0      # Weight for BM25 keyword match
-    recency_weight: float = 0.2   # Weight for document recency
-    
+    # Score weights - CRITICAL for quality (from config)
+    vector_weight: float = None
+    bm25_weight: float = None
+    recency_weight: float = None
+
     # Fusion method
     fusion_method: FusionMethod = FusionMethod.WEIGHTED_SUM
-    
+
     # RRF parameter (only for RRF fusion)
     rrf_k: int = 60
-    
-    # Retrieval parameters
-    vector_top_k: int = 100       # Candidates from vector search
-    bm25_top_k: int = 100         # Candidates from BM25 search
-    final_top_k: int = 100        # Final results before reranking
-    
+
+    # Retrieval parameters (from config)
+    vector_top_k: int = None
+    bm25_top_k: int = None
+    final_top_k: int = None
+
     # Recency boost
     enable_recency_boost: bool = False
     recency_field: str = "created_at"   # Metadata field for timestamp
     recency_decay_days: float = 30.0    # Half-life in days
-    
+
     # Score normalization
     normalize_scores: bool = True
+
+    def __post_init__(self):
+        """Load defaults from config if not specified."""
+        if self.vector_weight is None:
+            self.vector_weight = settings.retrieval.vector_weight
+        if self.bm25_weight is None:
+            self.bm25_weight = settings.retrieval.bm25_weight
+        if self.recency_weight is None:
+            self.recency_weight = settings.retrieval.recency_weight
+        if self.vector_top_k is None:
+            self.vector_top_k = settings.retrieval.top_k_retrieval
+        if self.bm25_top_k is None:
+            self.bm25_top_k = settings.retrieval.top_k_retrieval
+        if self.final_top_k is None:
+            self.final_top_k = settings.retrieval.top_k_retrieval
     
     
 @dataclass

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install --upgrade langchain-core langchain-community)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}
