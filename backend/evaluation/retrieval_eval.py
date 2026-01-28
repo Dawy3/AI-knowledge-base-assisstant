@@ -26,6 +26,7 @@ class RetrievalMetrics:
 
     recall_at_k: dict[int, float] = field(default_factory=dict)
     precision_at_k: dict[int, float] = field(default_factory=dict)
+    hit_rate_at_k: dict[int, float] = field(default_factory=dict)  # % queries with >= 1 relevant in top-k
     mrr: float = 0.0
     ndcg_at_k: dict[int, float] = field(default_factory=dict)
     avg_latency_ms: float = 0.0
@@ -37,17 +38,19 @@ class RetrievalMetrics:
         return {
             "recall": self.recall_at_k,
             "precision": self.precision_at_k,
+            "hit_rate": self.hit_rate_at_k,
             "mrr": self.mrr,
             "ndcg": self.ndcg_at_k,
             "latency": {"avg_ms": self.avg_latency_ms, "p95_ms": self.p95_latency_ms, "p99_ms": self.p99_latency_ms},
             "qps": self.queries_per_second,
         }
 
-    def check_targets(self, recall_10_target: float = 0.80, ndcg_10_target: float = 0.75) -> dict[str, bool]:
+    def check_targets(self, recall_10_target: float = 0.80, ndcg_10_target: float = 0.75, hit_rate_10_target: float = 0.90) -> dict[str, bool]:
         """Check if metrics meet production targets."""
         return {
             "recall_10": self.recall_at_k.get(10, 0) >= recall_10_target,
             "ndcg_10": self.ndcg_at_k.get(10, 0) >= ndcg_10_target,
+            "hit_rate_10": self.hit_rate_at_k.get(10, 0) >= hit_rate_10_target,
         }
 
 
@@ -158,6 +161,7 @@ class RetrievalEvaluator:
     def _calculate_metrics(self, results: list[dict], latencies: list[float]) -> RetrievalMetrics:
         recall_at_k = {k: [] for k in self.k_values}
         precision_at_k = {k: [] for k in self.k_values}
+        hit_rate_at_k = {k: [] for k in self.k_values}  # Binary: 1 if any relevant in top-k, else 0
         ndcg_at_k = {k: [] for k in self.k_values}
         reciprocal_ranks = []
 
@@ -171,6 +175,7 @@ class RetrievalEvaluator:
                 hits = len(set(retrieved_k) & relevant_set)
                 recall_at_k[k].append(hits / len(relevant_set) if relevant_set else 0.0)
                 precision_at_k[k].append(hits / k)
+                hit_rate_at_k[k].append(1.0 if hits > 0 else 0.0)  # Hit Rate: at least 1 relevant
 
             rr = 0.0
             for rank, doc_id in enumerate(retrieved, 1):
@@ -188,6 +193,7 @@ class RetrievalEvaluator:
         metrics = RetrievalMetrics(
             recall_at_k={k: float(np.mean(v)) for k, v in recall_at_k.items()},
             precision_at_k={k: float(np.mean(v)) for k, v in precision_at_k.items()},
+            hit_rate_at_k={k: float(np.mean(v)) for k, v in hit_rate_at_k.items()},
             mrr=float(np.mean(reciprocal_ranks)) if reciprocal_ranks else 0.0,
             ndcg_at_k={k: float(np.mean(v)) for k, v in ndcg_at_k.items()},
         )
@@ -225,17 +231,18 @@ def create_synthetic_dataset(num_queries: int = 100, num_relevant_per_query: int
 
 def run_evaluation(
     retriever, dataset: EvalDataset, embedding_fn=None, k_values: Optional[list[int]] = None,
-    recall_target: float = 0.80, ndcg_target: float = 0.75
+    recall_target: float = 0.80, ndcg_target: float = 0.75, hit_rate_target: float = 0.90
 ) -> tuple[RetrievalMetrics, bool]:
     """Run evaluation and check against targets."""
     evaluator = RetrievalEvaluator(k_values=k_values or [1, 5, 10])
     metrics = evaluator.evaluate(retriever, dataset, embedding_fn)
-    targets = metrics.check_targets(recall_target, ndcg_target)
+    targets = metrics.check_targets(recall_target, ndcg_target, hit_rate_target)
     passed = all(targets.values())
 
     logger.info("=" * 50)
     logger.info(f"Evaluation Results for {dataset.name}")
     logger.info(f"Recall@10:    {metrics.recall_at_k.get(10, 0):.4f} (target: {recall_target})")
+    logger.info(f"Hit Rate@10:  {metrics.hit_rate_at_k.get(10, 0):.4f} (target: {hit_rate_target})")
     logger.info(f"NDCG@10:      {metrics.ndcg_at_k.get(10, 0):.4f} (target: {ndcg_target})")
     logger.info(f"MRR:          {metrics.mrr:.4f}")
     logger.info(f"Avg Latency:  {metrics.avg_latency_ms:.2f}ms")
@@ -252,6 +259,9 @@ def print_report(metrics: RetrievalMetrics, dataset_name: str = "dataset") -> No
     print("\n[Quality Metrics]")
     for k in sorted(metrics.recall_at_k.keys()):
         print(f"  Recall@{k}:    {metrics.recall_at_k[k]:.4f}")
+    print()
+    for k in sorted(metrics.hit_rate_at_k.keys()):
+        print(f"  Hit Rate@{k}: {metrics.hit_rate_at_k[k]:.4f}")
     print()
     for k in sorted(metrics.precision_at_k.keys()):
         print(f"  Precision@{k}: {metrics.precision_at_k[k]:.4f}")
