@@ -18,6 +18,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
 logger = logging.getLogger(__name__)
 
 
@@ -179,8 +182,7 @@ class LLMQueryTransformer:
         """Lazy load multi-query chain."""
         if self._multi_query_chain is None and self.llm:
             try:
-                from langchain.prompts import ChatPromptTemplate
-                from langchain_core.output_parsers import StrOutputParser
+                
 
                 template = """Generate {num} different versions of this search query.
 Each version should capture the same intent but use different words.
@@ -200,9 +202,6 @@ Variations:"""
         """Lazy load HyDE chain."""
         if self._hyde_chain is None and self.llm:
             try:
-                from langchain.prompts import ChatPromptTemplate
-                from langchain_core.output_parsers import StrOutputParser
-
                 template = """Write a short passage (about 100 words) that would perfectly answer this question:
 
 Question: {query}
