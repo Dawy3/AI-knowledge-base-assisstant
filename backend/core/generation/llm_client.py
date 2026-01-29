@@ -4,15 +4,14 @@ LLM Client for RAG Pipeline.
 FOCUS: Support streaming + batching
 MUST: Implement retries, timeouts, fallbacks
 
-MODEL ROUTING PATTERN - 3-Tier Architecture:
-- Tier 1 (70% queries): Simple model (GPT-3.5) for straightforward Q&A
-- Tier 2 (25% queries): Medium model (GPT-4o-mini) for moderate complexity
-- Tier 3 (5% queries): Best model (GPT-4) for complex reasoning
+Execution layer for LLM API calls with tier-based routing.
+Tier decisions come from core.query.router.QueryRouter.
 
 Supports:
 - OpenAI API (GPT-4, GPT-4o-mini, GPT-3.5)
 - Automatic fallback on failure
-- Tiered model routing based on query complexity
+- Streaming and batching
+- Retry logic with exponential backoff
 """
 
 import asyncio
@@ -25,6 +24,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..config import settings
+from ..query.router import ModelTier, TIER_TO_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -36,38 +36,34 @@ class LLMResponse:
     usage: dict  # {prompt_tokens, completion_tokens, total_tokens}
     latency_ms: float
     is_fallback: bool = False
-    
-class ModelTier(str):
-    """Model tiers for routing pattern."""
-    TIER_1 = "tier_1"  # Simple model (70% of queries) - straightforward Q&A
-    TIER_2 = "tier_2"  # Medium model (25% of queries) - moderate complexity
-    TIER_3 = "tier_3"  # Best model (5% of queries) - complex reasoning
-
-# Default models for each tier
-TIER_MODELS = {
-    ModelTier.TIER_1: "gpt-3.5-turbo",      # Simple queries (70%)
-    ModelTier.TIER_2: "gpt-4o-mini",         # Moderate queries (25%)
-    ModelTier.TIER_3: "gpt-4-turbo-preview", # Complex queries (5%)
-}
 
 
 class LLMClient:
     """
     Unified LLM client with retries and fallbacks.
-    
-    MODEL ROUTING PATTERN - 3-Tier Architecture:
-    - Tier 1 (70%): Simple model (GPT-3.5) for straightforward Q&A
-    - Tier 2 (25%): Medium model (GPT-4o-mini) for moderate complexity
-    - Tier 3 (5%): Best model (GPT-4) for complex reasoning
+
+    Execution layer for LLM API calls. Tier routing decisions should come from
+    core.query.router.QueryRouter.
 
     Usage:
-        client = LLMClient(api_key="...")
+        from core.query.router import QueryRouter
+        from core.generation.llm_client import LLMClient
 
-        # Non-streaming - uses tier routing
-        response = await client.generate(prompt, system_prompt, tier=ModelTier.TIER_1)
+        # Initialize
+        router = QueryRouter()
+        client = LLMClient()
+
+        # Route query intelligently
+        routing_decision = router.route(query)
+
+        # Execute with routed tier
+        response = await client.generate(
+            prompt=query,
+            tier=routing_decision.tier
+        )
 
         # Streaming
-        async for chunk in client.stream(prompt, system_prompt):
+        async for chunk in client.stream(prompt, tier=routing_decision.tier):
             print(chunk, end="")
     """
     
@@ -82,33 +78,48 @@ class LLMClient:
         max_retries: Optional[int] = None,
     ):
         """
+        Initialize LLM client.
+
+        Tier routing decisions should come from QueryRouter.
+        This client just executes the API call based on the tier.
+
         Args:
             api_key: OpenAI API key (defaults to config)
             tier1_model: Tier 1 model for simple queries (defaults to config)
             tier2_model: Tier 2 model for moderate queries (defaults to config)
             tier3_model: Tier 3 model for complex queries (defaults to config)
-            fallback_model: Fallback on primary failure
+            fallback_model: Fallback on primary failure (defaults to tier1_model)
             timeout: Request timeout in seconds (defaults to config)
             max_retries: Max retry attempts (defaults to config)
         """
         # Use config defaults if not specified
         self.api_key = api_key or settings.llm.openai_api_key
-        self.tier1_model = tier1_model or settings.llm.local_model_name
+
+        # Default tier models from config
+        self.tier1_model = tier1_model or settings.llm.local_model_name or "gpt-3.5-turbo"
         self.tier2_model = tier2_model or "gpt-4o-mini"
-        self.tier3_model = tier3_model or settings.llm.openai_model
+        self.tier3_model = tier3_model or settings.llm.openai_model or "gpt-4"
         self.fallback_model = fallback_model or self.tier1_model
+
         self.timeout = timeout if timeout is not None else settings.llm.request_timeout
         self.max_retries = max_retries if max_retries is not None else settings.llm.max_retries
-        
-        # Tier model mapping
+
+        # Tier to model mapping (execution layer only)
         self._tier_models = {
-            ModelTier.TIER_1: tier1_model,
-            ModelTier.TIER_2: tier2_model,
-            ModelTier.TIER_3: tier3_model,
+            ModelTier.TIER_1: self.tier1_model,
+            ModelTier.TIER_2: self.tier2_model,
+            ModelTier.TIER_3: self.tier3_model,
         }
 
         self._openai_base = "https://api.openai.com/v1"
         self._client: Optional[httpx.AsyncClient] = None
+
+        logger.info(
+            f"Initialized LLMClient: "
+            f"Tier1={self.tier1_model}, "
+            f"Tier2={self.tier2_model}, "
+            f"Tier3={self.tier3_model}"
+        )
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -132,24 +143,27 @@ class LLMClient:
         """
         Generate response (non-streaming).
 
-        3-Tier Model Routing:
-        - Tier 1: Simple model for straightforward Q&A
-        - Tier 2: Medium model for moderate complexity
-        - Tier 3: Best model for complex reasoning
+        Use QueryRouter to determine tier intelligently:
+            routing_decision = router.route(query)
+            response = await client.generate(prompt, tier=routing_decision.tier)
 
         Args:
             prompt: User prompt
             system_prompt: Optional system prompt
             model: Specific model override (if None, uses tier)
-            tier: Model tier (TIER_1, TIER_2, TIER_3). Defaults to TIER_3 if not specified.
+            tier: Model tier from QueryRouter (TIER_1, TIER_2, TIER_3)
+                  Defaults to TIER_3 if not specified
             temperature: Sampling temperature
             max_tokens: Maximum tokens to generate
+
+        Returns:
+            LLMResponse with content, model, usage, and latency
 
         MUST: Retries with exponential backoff, fallback on failure.
         """
         # Determine model from tier or use explicit model
         if model is None:
-            tier = tier or ModelTier.TIER_3     # Default to best model if not specified
+            tier = tier or ModelTier.TIER_3  # Default to best model if not specified
             model = self.get_model_for_tier(tier)
             
         start = time.perf_counter()
@@ -249,18 +263,25 @@ class LLMClient:
         """
         Stream response chunks.
 
-        3-Tier Model Routing:
-        - Tier 1: Simple model for straightforward Q&A
-        - Tier 2: Medium model for moderate complexity
-        - Tier 3: Best model for complex reasoning
-
-        Usage:
-            async for chunk in client.stream(prompt, tier=ModelTier.TIER_1):
+        Use QueryRouter to determine tier intelligently:
+            routing_decision = router.route(query)
+            async for chunk in client.stream(prompt, tier=routing_decision.tier):
                 print(chunk, end="", flush=True)
+
+        Args:
+            prompt: User prompt
+            system_prompt: Optional system prompt
+            model: Specific model override (if None, uses tier)
+            tier: Model tier from QueryRouter (TIER_1, TIER_2, TIER_3)
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+
+        Yields:
+            Response chunks as they arrive
         """
         # Determine model from tier or use explicit model
         if model is None:
-            tier = tier or ModelTier.TIER_3   # Default to best model if not specified
+            tier = tier or ModelTier.TIER_3  # Default to best model if not specified
             model = self.get_model_for_tier(tier)
         
         client = await self._get_client()
