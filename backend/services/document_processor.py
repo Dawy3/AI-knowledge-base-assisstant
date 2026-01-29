@@ -110,19 +110,19 @@ class DocumentProcessor:
             
         return "\n\n".join(pages), len(reader.pages)
     
-    def _extract_docx(self, path:Path) -> tuple[str, int]:
+    def _extract_docx(self, path: Path) -> tuple[str, int]:
         """Extract text from Word document."""
 
         doc = Document(path)
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-        
+
         # Also extract from tables
         for table in doc.tables:
-            for row in table.row:
+            for row in table.rows:  # Fixed: table.rows (not table.row)
                 row_text = " | ".join(cell.text for cell in row.cells)
                 if row_text.strip():
                     paragraphs.append(row_text)
-                    
+
         return "\n\n".join(paragraphs), 1
 
         
