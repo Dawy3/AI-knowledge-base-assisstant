@@ -254,26 +254,50 @@ class MonitoringConfig(BaseSettings):
 
 class DatabaseConfig(BaseSettings):
     """Database configuration."""
-    
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     # PostgreSQL (metadata + pgvector for small scale)
+    # Can be disabled by setting to empty string if using Qdrant Cloud only
     postgres_url: str = Field(
-        default="postgresql://user:password@localhost:5432/ragdb"
+        default="",
+        alias="DATABASE_URL",
+        description="PostgreSQL URL - leave empty to disable PostgreSQL"
     )
     postgres_pool_size: int = Field(default=10)
-    
+
     # Vector store selection based on scale
     vector_store: str = Field(
-        default="pgvector",
-        description="Vector store: pgvector (<10M), qdrant (10M-500M), milvus (>500M)"
+        default="qdrant",
+        alias="VECTOR_STORE",
+        description="Vector store: pgvector (<10M), qdrant (10M-500M), pinecone (managed)"
     )
-    
-    # Qdrant configuration
-    qdrant_url: str = Field(default="http://localhost:6333")
-    qdrant_api_key: Optional[str] = Field(default=None)
-    
-    # Milvus configuration
-    milvus_host: str = Field(default="localhost")
-    milvus_port: int = Field(default=19530)
+
+    # Qdrant configuration (works with both local and cloud)
+    qdrant_url: str = Field(
+        default="http://localhost:6333",
+        alias="QDRANT_URL",
+        description="Qdrant URL (local: http://localhost:6333, cloud: https://xxx.qdrant.io)"
+    )
+    qdrant_api_key: Optional[str] = Field(
+        default=None,
+        alias="QDRANT_API_KEY",
+        description="Qdrant API key (required for Qdrant Cloud)"
+    )
+    qdrant_collection: str = Field(
+        default="documents",
+        alias="QDRANT_COLLECTION",
+        description="Qdrant collection name"
+    )
+
+    # Pinecone configuration
+    pinecone_api_key: Optional[str] = Field(default=None, alias="PINECONE_API_KEY")
+    pinecone_environment: str = Field(default="us-east-1", alias="PINECONE_ENVIRONMENT")
+    pinecone_index_name: str = Field(default="rag-documents", alias="PINECONE_INDEX_NAME")
 
 
 class Settings(BaseSettings):
