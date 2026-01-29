@@ -57,7 +57,18 @@ class QdrantStore:
 
     async def connect(self):
         """Connect to Qdrant and ensure collection exists."""
-        self.client = QdrantClient(url=self.url, api_key=self.api_key)
+        # Qdrant Cloud uses HTTPS on port 443
+        if "cloud.qdrant.io" in self.url:
+            self.client = QdrantClient(
+                url=self.url,
+                api_key=self.api_key,
+                https=True,
+                port=443,
+            )
+        else:
+            # Local Qdrant uses HTTP on port 6333
+            self.client = QdrantClient(url=self.url, api_key=self.api_key)
+
         self._ensure_collection()
         logger.info(f"QdrantStore connected: {self.collection}")
 
