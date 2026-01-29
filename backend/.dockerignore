@@ -1,0 +1,56 @@
+# =============================================================================
+# Docker Ignore - Backend
+# =============================================================================
+
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info
+
+# Virtual environments
+venv
+.venv
+env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+tests/
+
+# Logs & Data (mounted as volumes)
+data/
+logs/
+*.log
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks
+*.ipynb
+
+# Secrets
+*.pem
+*.key
+.env.local
