@@ -37,7 +37,7 @@ class Conversation(Base):
     user_id = Column(String(255), index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, default={})
+    extra_metadata = Column(JSONB, default={})  # Renamed from metadata
     
     # Relationships
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
@@ -99,24 +99,24 @@ class Feedback(Base):
 
 class DocumentChunk(Base):
     """Document chunks with metadata."""
-    
+
     __tablename__ = "document_chunks"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(String(255), nullable=False, index=True)
     chunk_index = Column(Integer, nullable=False)
-    
+
     # Content
     content = Column(Text, nullable=False)
     token_count = Column(Integer, default=0)
-    
+
     # Source tracking
     source_file = Column(String(500))
     start_char = Column(Integer)
     end_char = Column(Integer)
-    
+
     # Metadata
-    metadata = Column(JSONB, default={})
+    chunk_metadata = Column(JSONB, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -130,9 +130,50 @@ class DocumentChunk(Base):
     )
 
 
+class Document(Base):
+    """Uploaded documents for RAG ingestion."""
+
+    __tablename__ = "documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    filename = Column(String(500), nullable=False)
+    file_type = Column(String(50))
+    file_size = Column(Integer)
+
+    # Processing status
+    status = Column(String(50), default="queued", index=True)  # queued, processing, embedding, completed, failed
+    chunks_created = Column(Integer, default=0)
+    chunks_embedded = Column(Integer, default=0)
+    error_message = Column(Text)
+
+    # Metadata
+    title = Column(String(500))
+    description = Column(Text)
+    tags = Column(JSONB, default=[])
+    category = Column(String(100))
+    source_url = Column(String(1000))
+    author = Column(String(255))
+
+    # Chunking configuration used
+    chunk_strategy = Column(String(50))
+    chunk_size = Column(Integer)
+    chunk_overlap = Column(Integer)
+
+    # Tracking
+    user_id = Column(String(255), index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    processing_time_ms = Column(Float)
+
+    __table_args__ = (
+        Index("idx_documents_user", "user_id"),
+        Index("idx_documents_status", "status"),
+    )
+
+
 class QueryLog(Base):
     """Log of all queries for evaluation dataset building."""
-    
+
     __tablename__ = "query_logs"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
