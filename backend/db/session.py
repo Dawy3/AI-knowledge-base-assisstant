@@ -22,14 +22,13 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 def get_database_url() -> str:
-    """Get PostgreSQL database URL from settings."""
-    url = settings.database.postgres_url
-    if not url:
-        raise ValueError(
-            "PostgreSQL URL not configured. Set DATABASE__POSTGRES_URL in .env file "
-            "or use vector store only (Qdrant/Pinecone) without PostgreSQL features."
-        )
-    return url
+    """Get PostgreSQL database URL from settings. Returns empty string if not configured."""
+    return settings.database.postgres_url or ""
+
+
+def is_database_enabled() -> bool:
+    """Check if PostgreSQL is configured."""
+    return bool(settings.database.postgres_url)
 
 
 def get_async_database_url() -> str:
@@ -56,6 +55,8 @@ _async_session_local = None
 def get_sync_engine():
     """Get or create sync engine (lazy initialization)."""
     global _sync_engine
+    if not is_database_enabled():
+        return None
     if _sync_engine is None:
         _sync_engine = create_engine(
             get_database_url(),
@@ -71,6 +72,8 @@ def get_sync_engine():
 def get_async_engine():
     """Get or create async engine (lazy initialization)."""
     global _async_engine
+    if not is_database_enabled():
+        return None
     if _async_engine is None:
         _async_engine = create_async_engine(
             get_async_database_url(),
@@ -90,6 +93,8 @@ def get_async_engine():
 def get_session_local():
     """Get or create sync session factory."""
     global _session_local
+    if not is_database_enabled():
+        return None
     if _session_local is None:
         _session_local = sessionmaker(
             bind=get_sync_engine(),
@@ -102,6 +107,8 @@ def get_session_local():
 def get_async_session_local():
     """Get or create async session factory."""
     global _async_session_local
+    if not is_database_enabled():
+        return None
     if _async_session_local is None:
         _async_session_local = async_sessionmaker(
             bind=get_async_engine(),
@@ -135,6 +142,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         async def get_items(db: AsyncSession = Depends(get_db)):
             ...
     """
+    if not is_database_enabled():
+        raise RuntimeError("PostgreSQL is not configured. Set DATABASE_URL in .env")
+
     session_factory = get_async_session_local()
     async with session_factory() as session:
         try:
@@ -163,6 +173,10 @@ def get_sync_db():
 
 async def init_db():
     """Initialize database connection and create tables if needed."""
+    if not is_database_enabled():
+        logger.info("PostgreSQL disabled - skipping database initialization")
+        return
+
     from backend.db.models import Base
 
     engine = get_async_engine()
@@ -174,6 +188,9 @@ async def init_db():
 async def close_db():
     """Close database connections."""
     global _async_engine, _sync_engine
+
+    if not is_database_enabled():
+        return
 
     if _async_engine:
         await _async_engine.dispose()
@@ -188,9 +205,15 @@ async def close_db():
 
 async def check_db_connection() -> bool:
     """Check if database connection is healthy."""
+    if not is_database_enabled():
+        return True  # Skip check if database is disabled
+
     from sqlalchemy import text
     try:
-        async with get_async_session_local()() as session:
+        session_factory = get_async_session_local()
+        if session_factory is None:
+            return False
+        async with session_factory() as session:
             await session.execute(text("SELECT 1"))
         return True
     except Exception as e:
