@@ -7,9 +7,11 @@ MUST: Cache embeddings for unchanged docs
 
 Implementation follows best practices:
 1. Batch texts for efficient API usage
-2. Cache embeddings keyed by content hash + model ID
+2. Cache embeddings keyed by content hash + model ID (uses unified EmbeddingCache)
 3. Retry with exponential backoff
 4. Track model version for consistency
+
+Uses unified EmbeddingCache from core.caching.embedding_cache for consistency.
 """
 
 import asyncio
@@ -26,6 +28,7 @@ from sentence_transformers import SentenceTransformer
 import cohere
 
 from ..config import settings
+from ..caching.embedding_cache import EmbeddingCache
 from .models import EmbeddingModel, EmbeddingModelProvider, get_embedding_model
 
 logger = logging.getLogger(__name__)
@@ -52,82 +55,14 @@ class EmbeddingResult:
     estimated_cost: float = 0.0
     
     
-@dataclass
-class CachedEmbedding:
-    """Cached embedding with metadata."""
-    
-    embedding: list[float]
-    model_id: str
-    content_hash: str
-    created_at: float = field(default_factory=time.time)
-    access_count: int = 0
-    
-
-class EmbeddingCache(ABC):
-    """Abstract base class for embedding cache."""
-    
-    @abstractmethod
-    async def get(self, key: str) -> Optional[CachedEmbedding]:
-        """Get cached embedding by key."""
-        pass
-    
-    @abstractmethod
-    async def set(self, key: str, embedding: CachedEmbedding) -> None:
-        """Store embedding in cache."""
-        pass
-    
-    @abstractmethod
-    async def get_many(self, keys: list[str]) -> dict[str, CachedEmbedding]:
-        """Get multiple cached embeddings."""
-        pass
-    
-    @abstractmethod
-    async def set_many(self, items: dict[str, CachedEmbedding]) -> None:
-        """Store multiple embeddings."""
-        pass
-    
-    
-class InMemoryEmbeddingCache(EmbeddingCache):
-    """Simple in-memory embedding cache for development/testing."""
-    
-    def __init__(self, max_size: int = 10000):
-        self._cache: dict[str, CachedEmbedding] = {}
-        self._max_size = max_size
-        
-    async def get(self, key: str) -> Optional[CachedEmbedding]:
-        cached = self._cache.get(key)
-        if cached:
-            cached.access_count += 1
-        return cached
-    
-    async def set(self, key: str, embedding: CachedEmbedding) -> None:
-        if len(self._cache) >= self._max_size:
-            self._evict()
-        self._cache[key] = embedding
-        
-    async def get_many(self, keys: list[str]) -> dict[str, CachedEmbedding]:
-        result = {}
-        for key in keys:
-            if key in self._cache:
-                self._cache[key].access_count += 1
-                result[key] = self._cache[key]
-        return result
-    
-    async def set_many(self, items: dict[str, CachedEmbedding]) -> None:
-        for key, embedding in items.items():
-            await self.set(key, embedding)
-            
-            
-    def _evict(self) -> None:
-        """Evict least recently used items."""
-        # Simple LRU: remove 10% of least accessed items
-        evict_count = max(1, len(self._cache) // 10)
-        sorted_items = sorted(
-            self._cache.items(),
-            key=lambda x: x[1].access_count
-        )
-        for key, _ in sorted_items[:evict_count]:
-            del self._cache[key]
+# Removed duplicate EmbeddingCache classes - now using unified cache from:
+# core.caching.embedding_cache.EmbeddingCache
+#
+# This provides Redis + in-memory hybrid caching with better features:
+# - Persistence with Redis
+# - Automatic fallback to in-memory
+# - TTL management
+# - Better eviction policies
             
 
 class BaseEmbeddingClient(ABC):
@@ -279,13 +214,28 @@ class EmbeddingGenerator:
         """
         Initialize embedding generator.
 
+        Uses unified EmbeddingCache from core.caching.embedding_cache.
+        Supports both Redis (persistent) and in-memory caching.
+
         Args:
             model_key: Model identifier from supported models (defaults to config)
-            cache: Optional cache implementation
+            cache: Optional EmbeddingCache instance (Redis or in-memory)
+                   If None and caching enabled, creates in-memory cache
             enable_cache: Whether to use caching (defaults to config)
             batch_size: Override default batch size (defaults to config)
             max_retries: Maximum retry attempts (defaults to config)
             retry_delay: Initial retry delay in seconds
+
+        Example:
+            # In-memory cache for initial ingestion
+            generator = EmbeddingGenerator()  # Auto-creates in-memory cache
+
+            # Redis cache for production
+            from core.caching.embedding_cache import EmbeddingCache
+            import redis
+            redis_client = redis.Redis(host='localhost', port=6379)
+            cache = EmbeddingCache(redis_client=redis_client)
+            generator = EmbeddingGenerator(cache=cache)
         """
         # Use config defaults if not specified
         if model_key is None:
@@ -302,17 +252,26 @@ class EmbeddingGenerator:
         self.batch_size = batch_size or self.model.batch_size
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        
-        # Initialize Cache
+
+        # Initialize unified EmbeddingCache
         self._cache = cache if enable_cache else None
         if enable_cache and cache is None:
-            self._cache = InMemoryEmbeddingCache()
-            
+            # Create in-memory cache as default
+            # For production, pass Redis-backed cache explicitly
+            self._cache = EmbeddingCache(
+                redis_client=None,  # In-memory only
+                max_memory_size=10000,
+                prefix="emb_cache"
+            )
+            logger.info("Using in-memory embedding cache (no Redis)")
+
         # Initialize client based on provider
         self._client = self._create_client()
-        
+
         logger.info(
-            f"Initialized EmbeddingGenerator with model: {self.model.model_id}"
+            f"Initialized EmbeddingGenerator: model={self.model.model_id}, "
+            f"cache={'enabled' if enable_cache else 'disabled'}, "
+            f"batch_size={self.batch_size}"
         )
         
     def _create_client(self) -> BaseEmbeddingClient:
@@ -338,18 +297,20 @@ class EmbeddingGenerator:
     def _compute_content_hash(self, text: str) -> str:
         """Compute hash of text content for cache key."""
         return hashlib.sha256(text.encode()).hexdigest()[:16]
-    
+
     def _get_cache_key(self, text: str) -> str:
         """
         Generate cache key combining content hash and model ID.
-        
+
         CRITICAL: Model ID is included to prevent mixing embeddings
         from different models.
+
+        Note: Unified cache handles key prefixing automatically.
         """
         content_hash = self._compute_content_hash(text)
         # Include model ID to ensure cache invalidation on model change
         model_hash = hashlib.sha256(self.model_id.encode()).hexdigest()[:8]
-        return f"em:{model_hash}:{content_hash}"
+        return f"{model_hash}:{content_hash}"
     
     async def embed_texts(
         self,
@@ -377,63 +338,64 @@ class EmbeddingGenerator:
                 dimensions=self.model.dimensions,
             )
             
-        # Prepare cache keys
-        cache_keys = [self._get_cache_key(text) for text in texts]
-        
-        # Try to get from cache
-        cached_embeddings: dict[str, CachedEmbedding] = {}
+        # Try to get from unified cache
         texts_to_embed: list[tuple[int, str]] = []  # (index, text)
-        
+        cached_count = 0
+        final_embeddings = [None] * len(texts)  # Pre-allocate
+
         if use_cache and self._cache:
-            cached_embeddings = await self._cache.get_many(cache_keys)
-            
-            for i, (text, key) in enumerate(zip(texts, cache_keys)):
-                if key not in cached_embeddings:
-                    texts_to_embed.append((i, text))
-                    
+            # Use unified cache batch API
+            cached_embeddings, missing_indices = self._cache.get_batch(
+                contents=texts,
+                model_id=self.model_id
+            )
+
+            # Fill in cached embeddings
+            for i, embedding in enumerate(cached_embeddings):
+                if embedding is not None:
+                    final_embeddings[i] = embedding
+                    cached_count += 1
+
+            # Track texts that need embedding
+            texts_to_embed = [(i, texts[i]) for i in missing_indices]
         else:
+            # No cache, embed all
             texts_to_embed = list(enumerate(texts))
-            
+
         # Generate embeddings for uncached texts
         new_embeddings: dict[int, list[float]] = {}
 
         if texts_to_embed:
             # Process in batches
             new_embeddings = await self._embed_in_batches(texts_to_embed)
-            
-            # Cache new embeddings
+
+            # Cache new embeddings using unified cache
             if use_cache and self._cache:
-                cache_items = {}
-                for idx , embedding in new_embeddings.items():
-                    key = cache_keys[idx]
-                    cache_items[key] = CachedEmbedding(
-                        embedding = embedding,
-                        model_id=self.model_id,
-                        content_hash=self._compute_content_hash(texts[idx]),
-                    )
-                await self._cache.set_many(cache_items)
-        
-        # Combine cached and new embeddings in original order
-        final_embeddings = []
-        for i, key in enumerate(cache_keys):
-            if key in cached_embeddings:
-                final_embeddings.append(cached_embeddings[key].embedding)
-            else:
-                final_embeddings.append(new_embeddings[i])
+                new_contents = [texts[idx] for idx in new_embeddings.keys()]
+                new_embedding_list = list(new_embeddings.values())
+                self._cache.set_batch(
+                    contents=new_contents,
+                    model_id=self.model_id,
+                    embeddings=new_embedding_list
+                )
+
+            # Fill in new embeddings
+            for idx, embedding in new_embeddings.items():
+                final_embeddings[idx] = embedding
                 
         latency_ms = (time.time() - start_time) * 1000
-        
+
         # Estimate cost
         total_tokens = sum(len(text.split()) for text in texts)  # Approximate
-        estimated_cost = (total_tokens/ 1_000_000) * self.model.cost_per_million_tokens
-        
+        estimated_cost = (total_tokens / 1_000_000) * self.model.cost_per_million_tokens
+
         return EmbeddingResult(
             embeddings=final_embeddings,
             model_id=self.model_id,
             dimensions=self.model.dimensions,
             texts_count=len(texts),
             total_tokens=total_tokens,
-            cached_count=len(cached_embeddings),
+            cached_count=cached_count,
             generated_count=len(new_embeddings),
             latency_ms=latency_ms,
             estimated_cost=estimated_cost,
