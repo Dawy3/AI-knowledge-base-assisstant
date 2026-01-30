@@ -6,12 +6,18 @@ Good for 10M-500M vectors.
 """
 
 import logging
+import uuid
 from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, HnswConfigDiff, PointStruct, VectorParams, PointIdsList, FilterSelector
 
 logger = logging.getLogger(__name__)
+
+
+def string_to_uuid(s: str) -> str:
+    """Convert a string ID to a valid UUID for Qdrant."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, s))
 
 
 class QdrantStore:
@@ -34,11 +40,13 @@ class QdrantStore:
         distance: str = "cosine",
         hnsw_m: int = 16,
         hnsw_ef_construct: int = 100,
+        timeout: int = 600,  # Timeout in seconds (10 minutes for slow machines)
     ):
         self.url = url
         self.api_key = api_key
         self.collection = collection
         self.dimension = dimension
+        self.timeout = timeout
         self.client: Optional[QdrantClient] = None
 
         # Map distance metric
@@ -64,10 +72,15 @@ class QdrantStore:
                 api_key=self.api_key,
                 https=True,
                 port=443,
+                timeout=self.timeout,
             )
         else:
             # Local Qdrant uses HTTP on port 6333
-            self.client = QdrantClient(url=self.url, api_key=self.api_key)
+            self.client = QdrantClient(
+                url=self.url,
+                api_key=self.api_key,
+                timeout=self.timeout,
+            )
 
         self._ensure_collection()
         logger.info(f"QdrantStore connected: {self.collection}")
@@ -97,23 +110,26 @@ class QdrantStore:
         ids: list[str],
         embeddings: list[list[float]],
         metadata: Optional[list[dict]] = None,
-        batch_size: int = 100,
+        batch_size: int = 20,  # Small batches for slow machines
     ) -> int:
-        """Upsert vectors."""
+        """Upsert vectors. Batch size only affects upload speed, not retrieval accuracy."""
         if not self.client:
             raise RuntimeError("Not connected. Call connect() first.")
 
         metadata = metadata or [{} for _ in ids]
 
-        points = [
-            PointStruct(id=id_, vector=emb, payload=meta)
-            for id_, emb, meta in zip(ids, embeddings, metadata)
-        ]
+        # Store original ID in metadata and convert to UUID for Qdrant
+        points = []
+        for id_, emb, meta in zip(ids, embeddings, metadata):
+            meta_with_id = {**meta, "_original_id": id_}  # Store original ID
+            qdrant_id = string_to_uuid(id_)  # Convert to UUID
+            points.append(PointStruct(id=qdrant_id, vector=emb, payload=meta_with_id))
 
-        # Batch upsert
+        # Batch upsert with progress logging
         total = 0
         for i in range(0, len(points), batch_size):
             batch = points[i:i + batch_size]
+            logger.info(f"Upserting batch {i//batch_size + 1}/{(len(points)-1)//batch_size + 1}...")
             self.client.upsert(collection_name=self.collection, points=batch)
             total += len(batch)
 
@@ -130,21 +146,25 @@ class QdrantStore:
         if not self.client:
             raise RuntimeError("Not connected. Call connect() first.")
 
-        results = self.client.search(
+        # Use query_points for newer qdrant-client versions
+        results = self.client.query_points(
             collection_name=self.collection,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=top_k,
             query_filter=filter
         )
 
-        return [
-            {
-                "id": str(hit.id),
+        output = []
+        for hit in results.points:
+            payload = hit.payload or {}
+            # Return original ID if stored, otherwise UUID
+            original_id = payload.pop("_original_id", str(hit.id))
+            output.append({
+                "id": original_id,
                 "score": hit.score,
-                "metadata": hit.payload or {},
-            }
-            for hit in results
-        ]
+                "metadata": payload,
+            })
+        return output
 
     async def delete(
         self,
@@ -156,9 +176,11 @@ class QdrantStore:
             raise RuntimeError("Not connected. Call connect() first.")
 
         if ids:
+            # Convert string IDs to UUIDs
+            qdrant_ids = [string_to_uuid(id_) for id_ in ids]
             self.client.delete(
                 collection_name=self.collection,
-                points_selector=PointIdsList(points=ids),
+                points_selector=PointIdsList(points=qdrant_ids),
             )
             logger.info(f"Deleted {len(ids)} vectors from {self.collection}")
         elif filter:
@@ -182,7 +204,6 @@ class QdrantStore:
 
         info = self.client.get_collection(self.collection)
         return {
-            "vectors_count": info.vectors_count,
             "points_count": info.points_count,
-            "status": info.status.name,
+            "status": info.status.name if hasattr(info.status, 'name') else str(info.status),
         }
