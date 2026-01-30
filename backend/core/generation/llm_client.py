@@ -8,10 +8,15 @@ Execution layer for LLM API calls with tier-based routing.
 Tier decisions come from core.query.router.QueryRouter.
 
 Supports:
-- OpenAI API (GPT-4, GPT-4o-mini, GPT-3.5)
+- Multiple providers: OpenRouter, OpenAI, Local (via LLM__PROVIDER env)
 - Automatic fallback on failure
 - Streaming and batching
 - Retry logic with exponential backoff
+
+Configuration via .env:
+    LLM__PROVIDER=openrouter   # or: openai, local
+    LLM__MODEL=openai/gpt-4o-mini
+    OPENROUTER_API_KEY=sk-or-xxx
 """
 
 import asyncio
@@ -80,26 +85,40 @@ class LLMClient:
         """
         Initialize LLM client.
 
-        Tier routing decisions should come from QueryRouter.
-        This client just executes the API call based on the tier.
+        Tier routing is only applied for OpenAI provider.
+        For OpenRouter/local, the single LLM__MODEL is used for all requests.
 
         Args:
-            api_key: OpenAI API key (defaults to config)
-            tier1_model: Tier 1 model for simple queries (defaults to config)
-            tier2_model: Tier 2 model for moderate queries (defaults to config)
-            tier3_model: Tier 3 model for complex queries (defaults to config)
-            fallback_model: Fallback on primary failure (defaults to tier1_model)
+            api_key: API key (defaults to config based on provider)
+            tier1_model: Tier 1 model for simple queries (OpenAI only)
+            tier2_model: Tier 2 model for moderate queries (OpenAI only)
+            tier3_model: Tier 3 model for complex queries (OpenAI only)
+            fallback_model: Fallback on primary failure
             timeout: Request timeout in seconds (defaults to config)
             max_retries: Max retry attempts (defaults to config)
         """
-        # Use config defaults if not specified
-        self.api_key = api_key or settings.llm.openai_api_key
+        # Get provider from config
+        self.provider = settings.llm.provider
+        self.use_tier_routing = self.provider == "openai"
 
-        # Default tier models from config
-        self.tier1_model = tier1_model or settings.llm.local_model_name or "gpt-3.5-turbo"
-        self.tier2_model = tier2_model or "gpt-4o-mini"
-        self.tier3_model = tier3_model or settings.llm.openai_model or "gpt-4"
-        self.fallback_model = fallback_model or self.tier1_model
+        # Use config defaults based on provider
+        self.api_key = api_key or settings.llm.api_key
+        self._base_url = settings.llm.base_url
+
+        # Model configuration depends on provider
+        if self.use_tier_routing:
+            # OpenAI: Use tier-based routing
+            self.tier1_model = tier1_model or settings.llm.effective_tier1_model or "gpt-3.5-turbo"
+            self.tier2_model = tier2_model or settings.llm.effective_tier2_model or "gpt-4o-mini"
+            self.tier3_model = tier3_model or settings.llm.effective_tier3_model or "gpt-4"
+            self.fallback_model = fallback_model or self.tier1_model
+        else:
+            # OpenRouter/Local: Use single model for all tiers
+            single_model = settings.llm.model
+            self.tier1_model = single_model
+            self.tier2_model = single_model
+            self.tier3_model = single_model
+            self.fallback_model = fallback_model or single_model
 
         self.timeout = timeout if timeout is not None else settings.llm.request_timeout
         self.max_retries = max_retries if max_retries is not None else settings.llm.max_retries
@@ -111,15 +130,21 @@ class LLMClient:
             ModelTier.TIER_3: self.tier3_model,
         }
 
-        self._openai_base = "https://api.openai.com/v1"
         self._client: Optional[httpx.AsyncClient] = None
 
-        logger.info(
-            f"Initialized LLMClient: "
-            f"Tier1={self.tier1_model}, "
-            f"Tier2={self.tier2_model}, "
-            f"Tier3={self.tier3_model}"
-        )
+        if self.use_tier_routing:
+            logger.info(
+                f"Initialized LLMClient [OpenAI tier routing]: "
+                f"Tier1={self.tier1_model}, "
+                f"Tier2={self.tier2_model}, "
+                f"Tier3={self.tier3_model}"
+            )
+        else:
+            logger.info(
+                f"Initialized LLMClient [{self.provider}]: "
+                f"Model={settings.llm.model}, "
+                f"BaseURL={self._base_url}"
+            )
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -227,14 +252,19 @@ class LLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
-        # Use OpenAI API endpoint
+        # Use provider's API endpoint
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
         }
-        
+
+        # OpenRouter requires additional headers
+        if self.provider == "openrouter":
+            headers["HTTP-Referer"] = "https://github.com/your-app"  # Optional
+            headers["X-Title"] = "RAG Knowledge Assistant"  # Optional
+
         response = await client.post(
-            f"{self._openai_base}/chat/completions",
+            f"{self._base_url}/chat/completions",
             headers=headers,
             json={
                 "model": model,
@@ -296,10 +326,15 @@ class LLMClient:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
         }
-        
+
+        # OpenRouter requires additional headers
+        if self.provider == "openrouter":
+            headers["HTTP-Referer"] = "https://github.com/your-app"
+            headers["X-Title"] = "RAG Knowledge Assistant"
+
         async with client.stream(
             "POST",
-            f"{self._openai_base}/chat/completions",
+            f"{self._base_url}/chat/completions",
             headers=headers,
             json={
                 "model" : model,
