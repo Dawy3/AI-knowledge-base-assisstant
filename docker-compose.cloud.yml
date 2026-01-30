@@ -1,0 +1,72 @@
+# =============================================================================
+# RAG Knowledge Assistant - Full Cloud Docker Compose
+# =============================================================================
+#
+# Uses ALL cloud services (no local containers except backend & frontend):
+#   - PostgreSQL: Cloud (Supabase/Neon/Railway)
+#   - Qdrant: Cloud
+#   - Redis: Cloud
+#
+# Run: docker-compose -f docker-compose.cloud.yml up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Frontend (Next.js)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_URL=http://backend:8000
+    container_name: rag-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - rag-network
+
+  # ---------------------------------------------------------------------------
+  # Backend API
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+      - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
+    volumes:
+      - backend_data:/app/data
+      - backend_logs:/app/logs
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  backend_data:
+  backend_logs:
