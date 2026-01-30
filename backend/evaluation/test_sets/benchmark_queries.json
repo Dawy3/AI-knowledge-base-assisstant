@@ -1,0 +1,1539 @@
+{
+  "description": "Universal RAG Retrieval Benchmark - 250 queries with ground truth",
+  "version": "1.0.0",
+  "usage": "Test any retrieval pipeline by ingesting benchmark_documents.json as corpus",
+  "categories": {
+    "technical_api": "API documentation queries",
+    "troubleshooting": "Error handling and debugging",
+    "howto": "Step-by-step instructions",
+    "conceptual": "Explanations and comparisons",
+    "faq": "Frequently asked questions",
+    "configuration": "Setup and configuration",
+    "security": "Authentication and security",
+    "performance": "Optimization and scaling",
+    "integration": "Third-party integrations",
+    "data": "Data handling and formats"
+  },
+  "targets": {
+    "recall_at_5": 0.75,
+    "recall_at_10": 0.85,
+    "ndcg_at_10": 0.80,
+    "mrr": 0.70
+  },
+  "queries": [
+    {
+      "id": "api_001",
+      "query": "How do I authenticate API requests?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_auth_001"],
+      "ground_truth": "Include your API key in the Authorization header using Bearer token format."
+    },
+    {
+      "id": "api_002",
+      "query": "What is the rate limit for the API?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_limits_001"],
+      "ground_truth": "Rate limits are 100 requests per minute for free tier, 1000 for pro, unlimited for enterprise."
+    },
+    {
+      "id": "api_003",
+      "query": "How to paginate API results?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_pagination_001"],
+      "ground_truth": "Use limit and offset parameters. Response includes total_count and has_more fields."
+    },
+    {
+      "id": "api_004",
+      "query": "What HTTP methods are supported?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_methods_001"],
+      "ground_truth": "GET for retrieval, POST for creation, PUT for full update, PATCH for partial update, DELETE for removal."
+    },
+    {
+      "id": "api_005",
+      "query": "How to handle API versioning?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_versioning_001"],
+      "ground_truth": "Include version in URL path (/v1/, /v2/) or use Accept header with version parameter."
+    },
+    {
+      "id": "api_006",
+      "query": "What response formats are available?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_formats_001"],
+      "ground_truth": "JSON is default. XML available via Accept header. CSV for bulk exports."
+    },
+    {
+      "id": "api_007",
+      "query": "How to filter results in API calls?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_filtering_001"],
+      "ground_truth": "Use query parameters like ?status=active&created_after=2024-01-01. Supports operators: eq, ne, gt, lt, contains."
+    },
+    {
+      "id": "api_008",
+      "query": "What are the API request size limits?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_limits_002"],
+      "ground_truth": "Maximum request body is 10MB. For larger files, use multipart upload or presigned URLs."
+    },
+    {
+      "id": "api_009",
+      "query": "How to sort API results?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_sorting_001"],
+      "ground_truth": "Use sort parameter with field name. Prefix with - for descending. Example: ?sort=-created_at,name"
+    },
+    {
+      "id": "api_010",
+      "query": "What is the API base URL?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_endpoint_001"],
+      "ground_truth": "Production: https://api.example.com/v1. Sandbox: https://sandbox.api.example.com/v1"
+    },
+    {
+      "id": "api_011",
+      "query": "How to make batch API requests?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_batch_001"],
+      "ground_truth": "POST to /batch endpoint with array of operations. Maximum 100 operations per batch. Returns array of responses."
+    },
+    {
+      "id": "api_012",
+      "query": "What timeout should I set for API calls?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_timeout_001"],
+      "ground_truth": "Recommended 30 seconds for standard requests, 120 seconds for bulk operations. Server timeout is 300 seconds."
+    },
+    {
+      "id": "api_013",
+      "query": "How to handle webhook retries?",
+      "category": "technical_api",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhooks_001"],
+      "ground_truth": "Webhooks retry 3 times with exponential backoff (1min, 5min, 30min). Return 2xx to acknowledge. Implement idempotency."
+    },
+    {
+      "id": "api_014",
+      "query": "What is the API response time SLA?",
+      "category": "technical_api",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_sla_001"],
+      "ground_truth": "P95 latency under 200ms for read operations, under 500ms for writes. 99.9% uptime guarantee."
+    },
+    {
+      "id": "api_015",
+      "query": "How to use API cursors for large datasets?",
+      "category": "technical_api",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_cursors_001"],
+      "ground_truth": "Use cursor parameter from response next_cursor field. More efficient than offset for large datasets. Cursors expire after 24 hours."
+    },
+    {
+      "id": "err_001",
+      "query": "What does error code 401 mean?",
+      "category": "troubleshooting",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_errors_001"],
+      "ground_truth": "401 Unauthorized means invalid or missing API key. Check Authorization header format and key validity."
+    },
+    {
+      "id": "err_002",
+      "query": "How to fix error 429 Too Many Requests?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_002"],
+      "ground_truth": "Implement exponential backoff. Check Retry-After header. Consider upgrading plan for higher limits."
+    },
+    {
+      "id": "err_003",
+      "query": "What causes error 500 Internal Server Error?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_003"],
+      "ground_truth": "Server-side issue. Retry with exponential backoff. If persistent, check status page and contact support with request ID."
+    },
+    {
+      "id": "err_004",
+      "query": "How to debug error 400 Bad Request?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_004"],
+      "ground_truth": "Check request body format, required fields, and data types. Error response contains field-level validation details."
+    },
+    {
+      "id": "err_005",
+      "query": "What does ECONNREFUSED mean?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_005"],
+      "ground_truth": "Connection refused indicates service is down or firewall blocking. Check network connectivity and service status."
+    },
+    {
+      "id": "err_006",
+      "query": "How to resolve SSL certificate errors?",
+      "category": "troubleshooting",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_006"],
+      "ground_truth": "Update CA certificates. Check system time. For self-signed certs in dev, configure trust store or disable verification (dev only)."
+    },
+    {
+      "id": "err_007",
+      "query": "What does error code ERR_INVALID_TOKEN mean?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_007"],
+      "ground_truth": "Token is malformed, expired, or revoked. Generate new token. Check token hasn't been modified during transmission."
+    },
+    {
+      "id": "err_008",
+      "query": "How to fix CORS errors?",
+      "category": "troubleshooting",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_008"],
+      "ground_truth": "Add origin to allowed list in API settings. For development, use proxy or browser extension. Check preflight OPTIONS handling."
+    },
+    {
+      "id": "err_009",
+      "query": "What causes timeout errors?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_009"],
+      "ground_truth": "Network latency, server overload, or slow queries. Increase timeout, optimize query, or use async endpoints for long operations."
+    },
+    {
+      "id": "err_010",
+      "query": "How to handle error 403 Forbidden?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_010"],
+      "ground_truth": "Valid auth but insufficient permissions. Check API key scopes. Request additional permissions from admin."
+    },
+    {
+      "id": "err_011",
+      "query": "What does ETIMEDOUT error indicate?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_011"],
+      "ground_truth": "Connection timed out before response. Check network, increase timeout, or verify endpoint URL is correct."
+    },
+    {
+      "id": "err_012",
+      "query": "How to debug JSON parse errors?",
+      "category": "troubleshooting",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_errors_012"],
+      "ground_truth": "Validate JSON syntax. Check for trailing commas, unescaped quotes, or encoding issues. Use JSON validator tool."
+    },
+    {
+      "id": "err_013",
+      "query": "What causes error 404 Not Found?",
+      "category": "troubleshooting",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_errors_013"],
+      "ground_truth": "Resource doesn't exist or wrong URL. Verify endpoint path, resource ID, and API version."
+    },
+    {
+      "id": "err_014",
+      "query": "How to fix memory limit exceeded error?",
+      "category": "troubleshooting",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_014"],
+      "ground_truth": "Reduce batch size, paginate results, stream large responses. Increase memory allocation if possible."
+    },
+    {
+      "id": "err_015",
+      "query": "What does error code QUOTA_EXCEEDED mean?",
+      "category": "troubleshooting",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_015"],
+      "ground_truth": "Monthly quota reached. Wait for reset or upgrade plan. Check usage dashboard for consumption details."
+    },
+    {
+      "id": "how_001",
+      "query": "How to install the SDK?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_install_001"],
+      "ground_truth": "Python: pip install sdk-name. Node: npm install sdk-name. Requires Python 3.8+ or Node 16+."
+    },
+    {
+      "id": "how_002",
+      "query": "How to create a new project?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_project_001"],
+      "ground_truth": "Go to Dashboard > Projects > Create New. Enter name and description. Copy the generated project ID."
+    },
+    {
+      "id": "how_003",
+      "query": "How to upload files?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_upload_001"],
+      "ground_truth": "Use multipart/form-data POST to /files endpoint. Include file in 'file' field. Returns file_id on success."
+    },
+    {
+      "id": "how_004",
+      "query": "How to generate API keys?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_keys_001"],
+      "ground_truth": "Dashboard > Settings > API Keys > Generate. Select scopes and expiration. Copy key immediately - shown only once."
+    },
+    {
+      "id": "how_005",
+      "query": "How to set up webhooks?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhooks_setup_001"],
+      "ground_truth": "Settings > Webhooks > Add Endpoint. Enter URL, select events. Test with Send Test. Verify signature on receive."
+    },
+    {
+      "id": "how_006",
+      "query": "How to export data?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_export_001"],
+      "ground_truth": "Dashboard > Data > Export. Select format (CSV/JSON), date range, and fields. Large exports delivered via email link."
+    },
+    {
+      "id": "how_007",
+      "query": "How to implement retry logic?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_retry_001"],
+      "ground_truth": "Use exponential backoff starting at 1 second, max 32 seconds. Retry on 429, 500, 502, 503, 504. Max 5 attempts."
+    },
+    {
+      "id": "how_008",
+      "query": "How to validate webhook signatures?",
+      "category": "howto",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_webhooks_verify_001"],
+      "ground_truth": "Compute HMAC-SHA256 of request body using webhook secret. Compare with X-Signature header. Reject if mismatch."
+    },
+    {
+      "id": "how_009",
+      "query": "How to delete a resource?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_delete_001"],
+      "ground_truth": "Send DELETE request to /resources/{id}. Returns 204 No Content on success. Deletion is permanent."
+    },
+    {
+      "id": "how_010",
+      "query": "How to search with filters?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_search_001"],
+      "ground_truth": "POST to /search with JSON body containing query and filters. Supports AND/OR logic, nested conditions, and full-text search."
+    },
+    {
+      "id": "how_011",
+      "query": "How to update user profile?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_profile_001"],
+      "ground_truth": "PATCH to /users/me with fields to update. Only provided fields are changed. Returns updated user object."
+    },
+    {
+      "id": "how_012",
+      "query": "How to invite team members?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_team_001"],
+      "ground_truth": "Settings > Team > Invite. Enter email and select role. User receives email with invitation link valid for 7 days."
+    },
+    {
+      "id": "how_013",
+      "query": "How to enable two-factor authentication?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_2fa_001"],
+      "ground_truth": "Profile > Security > Enable 2FA. Scan QR code with authenticator app. Enter verification code. Save backup codes."
+    },
+    {
+      "id": "how_014",
+      "query": "How to download invoices?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_billing_001"],
+      "ground_truth": "Billing > Invoices. Click PDF icon next to invoice. Or use GET /billing/invoices/{id}/pdf endpoint."
+    },
+    {
+      "id": "how_015",
+      "query": "How to change subscription plan?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_subscription_001"],
+      "ground_truth": "Billing > Subscription > Change Plan. Select new plan. Upgrades immediate, downgrades at next billing cycle."
+    },
+    {
+      "id": "how_016",
+      "query": "How to revoke API access?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_revoke_001"],
+      "ground_truth": "Settings > API Keys > Select key > Revoke. Takes effect immediately. Active sessions using key will fail."
+    },
+    {
+      "id": "how_017",
+      "query": "How to clone a project?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_clone_001"],
+      "ground_truth": "Projects > Select project > Actions > Clone. Choose what to include: settings, data, integrations. New project created with _copy suffix."
+    },
+    {
+      "id": "how_018",
+      "query": "How to schedule automated reports?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_reports_001"],
+      "ground_truth": "Reports > Create Schedule. Select report type, frequency (daily/weekly/monthly), recipients. Reports sent via email at scheduled time."
+    },
+    {
+      "id": "how_019",
+      "query": "How to set up email notifications?",
+      "category": "howto",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_notifications_001"],
+      "ground_truth": "Settings > Notifications. Toggle categories on/off. Set digest frequency or real-time. Configure per-project overrides."
+    },
+    {
+      "id": "how_020",
+      "query": "How to restore deleted items?",
+      "category": "howto",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_restore_001"],
+      "ground_truth": "Trash > Select items > Restore. Items in trash for 30 days before permanent deletion. Pro plans have 90-day retention."
+    },
+    {
+      "id": "concept_001",
+      "query": "What is the difference between PUT and PATCH?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_methods_002"],
+      "ground_truth": "PUT replaces entire resource, requires all fields. PATCH updates only provided fields. PATCH is more efficient for partial updates."
+    },
+    {
+      "id": "concept_002",
+      "query": "What is OAuth 2.0?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_oauth_001"],
+      "ground_truth": "Authorization framework for delegated access. User grants app limited access without sharing credentials. Uses access tokens with scopes."
+    },
+    {
+      "id": "concept_003",
+      "query": "What is REST API?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_rest_001"],
+      "ground_truth": "Representational State Transfer. Architectural style using HTTP methods, stateless requests, and resource-based URLs."
+    },
+    {
+      "id": "concept_004",
+      "query": "What is idempotency?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_idempotency_001"],
+      "ground_truth": "Multiple identical requests have same effect as single request. Use Idempotency-Key header to prevent duplicate operations on retry."
+    },
+    {
+      "id": "concept_005",
+      "query": "What is the difference between sync and async APIs?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_async_001"],
+      "ground_truth": "Sync returns result immediately. Async returns job ID, poll for status or receive webhook. Use async for long-running operations."
+    },
+    {
+      "id": "concept_006",
+      "query": "What is GraphQL?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_graphql_001"],
+      "ground_truth": "Query language for APIs. Client specifies exact data needed in single request. Reduces over-fetching and under-fetching."
+    },
+    {
+      "id": "concept_007",
+      "query": "What is JWT token?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_jwt_001"],
+      "ground_truth": "JSON Web Token. Self-contained token with claims, signature. Contains user info without database lookup. Has expiration time."
+    },
+    {
+      "id": "concept_008",
+      "query": "What is rate limiting?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_ratelimit_001"],
+      "ground_truth": "Controls request frequency to prevent abuse. Limits per minute/hour/day. Returns 429 when exceeded with Retry-After header."
+    },
+    {
+      "id": "concept_009",
+      "query": "What is API versioning?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_versioning_002"],
+      "ground_truth": "Managing breaking changes through versions. URL path (/v1/), header, or query param. Older versions deprecated but supported."
+    },
+    {
+      "id": "concept_010",
+      "query": "What is HATEOAS?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_hateoas_001"],
+      "ground_truth": "Hypermedia As The Engine Of Application State. Responses include links to related resources and available actions."
+    },
+    {
+      "id": "concept_011",
+      "query": "What is difference between authentication and authorization?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_auth_002"],
+      "ground_truth": "Authentication verifies identity (who you are). Authorization determines permissions (what you can do). Auth happens first."
+    },
+    {
+      "id": "concept_012",
+      "query": "What is webhook?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhooks_concept_001"],
+      "ground_truth": "HTTP callback triggered by events. Server pushes data to your URL instead of you polling. Real-time notifications."
+    },
+    {
+      "id": "concept_013",
+      "query": "What is API gateway?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_gateway_001"],
+      "ground_truth": "Entry point for API requests. Handles authentication, rate limiting, routing, load balancing, caching. Single access point."
+    },
+    {
+      "id": "concept_014",
+      "query": "What is difference between SDK and API?",
+      "category": "conceptual",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_sdk_api_001"],
+      "ground_truth": "API is interface specification. SDK is pre-built library wrapping API calls with helpers, types, error handling. SDK simplifies integration."
+    },
+    {
+      "id": "concept_015",
+      "query": "What is serverless?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_serverless_001"],
+      "ground_truth": "Cloud execution model where provider manages infrastructure. Pay per invocation. Auto-scales. Examples: AWS Lambda, Azure Functions."
+    },
+    {
+      "id": "faq_001",
+      "query": "What are the pricing plans?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_pricing_001"],
+      "ground_truth": "Free: 1000 requests/month. Starter $29: 50K requests. Pro $99: 500K requests. Enterprise: custom pricing, unlimited."
+    },
+    {
+      "id": "faq_002",
+      "query": "Is there a free trial?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_trial_001"],
+      "ground_truth": "Yes, 14-day free trial of Pro features. No credit card required. Automatically converts to Free plan after trial."
+    },
+    {
+      "id": "faq_003",
+      "query": "What payment methods are accepted?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_payment_001"],
+      "ground_truth": "Credit cards (Visa, Mastercard, Amex), PayPal, wire transfer for Enterprise. Invoicing available for annual plans."
+    },
+    {
+      "id": "faq_004",
+      "query": "How to cancel subscription?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_cancel_001"],
+      "ground_truth": "Billing > Subscription > Cancel. Access continues until end of billing period. Data retained for 30 days after cancellation."
+    },
+    {
+      "id": "faq_005",
+      "query": "Is my data secure?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_security_overview_001"],
+      "ground_truth": "Yes. SOC 2 Type II certified. Data encrypted at rest (AES-256) and in transit (TLS 1.3). Regular security audits."
+    },
+    {
+      "id": "faq_006",
+      "query": "Where is data stored?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_datacenter_001"],
+      "ground_truth": "Primary in US (AWS us-east-1). EU option available (eu-west-1). Enterprise can choose region. GDPR compliant."
+    },
+    {
+      "id": "faq_007",
+      "query": "What is the uptime SLA?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_sla_002"],
+      "ground_truth": "99.9% for Pro, 99.99% for Enterprise. Credits issued for downtime: 10% for <99.9%, 25% for <99.5%, 50% for <99%."
+    },
+    {
+      "id": "faq_008",
+      "query": "Do you offer refunds?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_refund_001"],
+      "ground_truth": "Full refund within 30 days for annual plans. Monthly plans prorated. No refunds for usage-based charges."
+    },
+    {
+      "id": "faq_009",
+      "query": "How to contact support?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_support_001"],
+      "ground_truth": "Email support@example.com. Pro: 24-hour response. Enterprise: dedicated slack channel, 4-hour response for critical issues."
+    },
+    {
+      "id": "faq_010",
+      "query": "Is there an API status page?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_status_001"],
+      "ground_truth": "Yes, status.example.com shows real-time status, incident history, and maintenance schedule. Subscribe for email/SMS alerts."
+    },
+    {
+      "id": "faq_011",
+      "query": "What languages are SDKs available in?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_sdk_001"],
+      "ground_truth": "Official SDKs: Python, JavaScript/Node, Go, Java, Ruby, PHP, .NET. Community SDKs for Rust, Swift, Kotlin."
+    },
+    {
+      "id": "faq_012",
+      "query": "Can I use the API for commercial projects?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_license_001"],
+      "ground_truth": "Yes, all paid plans allow commercial use. Free tier for non-commercial and evaluation only. Check terms for reselling."
+    },
+    {
+      "id": "faq_013",
+      "query": "Do you provide on-premise deployment?",
+      "category": "faq",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_onprem_001"],
+      "ground_truth": "Enterprise plan includes on-premise option. Docker or Kubernetes deployment. Requires minimum 3-year contract."
+    },
+    {
+      "id": "faq_014",
+      "query": "What happens if I exceed my plan limits?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_overage_001"],
+      "ground_truth": "Soft limit: warning email at 80%. Hard limit: requests rejected with 429. Auto-upgrade available. Overage charges apply."
+    },
+    {
+      "id": "faq_015",
+      "query": "How long is data retained?",
+      "category": "faq",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_retention_001"],
+      "ground_truth": "Active accounts: indefinite. Deleted items: 30 days (90 for Pro). Cancelled accounts: 30 days then permanent deletion."
+    },
+    {
+      "id": "config_001",
+      "query": "How to configure environment variables?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_env_001"],
+      "ground_truth": "Create .env file in project root. Set API_KEY, API_SECRET, ENVIRONMENT. SDK auto-loads from .env or system environment."
+    },
+    {
+      "id": "config_002",
+      "query": "How to set up logging?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_logging_001"],
+      "ground_truth": "Set LOG_LEVEL to debug/info/warn/error. LOG_FORMAT: json or text. SDK logs to stdout by default. Configure custom handler."
+    },
+    {
+      "id": "config_003",
+      "query": "How to configure proxy settings?",
+      "category": "configuration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_proxy_001"],
+      "ground_truth": "Set HTTP_PROXY and HTTPS_PROXY environment variables. Or configure in SDK: client.setProxy('http://proxy:8080')."
+    },
+    {
+      "id": "config_004",
+      "query": "How to change default timeout?",
+      "category": "configuration",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_timeout_002"],
+      "ground_truth": "Set TIMEOUT_MS environment variable or configure in client: client = Client(timeout=60000). Default is 30000ms."
+    },
+    {
+      "id": "config_005",
+      "query": "How to configure custom domain?",
+      "category": "configuration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_domain_001"],
+      "ground_truth": "Settings > Custom Domain. Add CNAME record pointing to our endpoint. Upload SSL certificate or use auto-provisioned."
+    },
+    {
+      "id": "config_006",
+      "query": "How to set up IP allowlist?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_allowlist_001"],
+      "ground_truth": "Settings > Security > IP Allowlist. Add CIDR ranges. Requests from non-listed IPs rejected with 403."
+    },
+    {
+      "id": "config_007",
+      "query": "How to configure CORS settings?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_cors_001"],
+      "ground_truth": "Settings > API > CORS. Add allowed origins (exact or wildcard). Configure allowed methods and headers. Max age for preflight."
+    },
+    {
+      "id": "config_008",
+      "query": "How to enable debug mode?",
+      "category": "configuration",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_debug_001"],
+      "ground_truth": "Set DEBUG=true in environment or client.debug = true. Logs full request/response. Never enable in production."
+    },
+    {
+      "id": "config_009",
+      "query": "How to configure connection pooling?",
+      "category": "configuration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_pool_001"],
+      "ground_truth": "Set MAX_CONNECTIONS (default 10), CONNECTION_TIMEOUT, KEEP_ALIVE. Higher pool size for high-throughput applications."
+    },
+    {
+      "id": "config_010",
+      "query": "How to set up multiple environments?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_environments_001"],
+      "ground_truth": "Create separate projects for dev/staging/prod. Use different API keys per environment. Configure via .env.development, .env.production."
+    },
+    {
+      "id": "config_011",
+      "query": "How to configure request signing?",
+      "category": "configuration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_signing_001"],
+      "ground_truth": "Enable in Settings > Security. SDK auto-signs requests. For manual: HMAC-SHA256 of method+path+timestamp+body with secret."
+    },
+    {
+      "id": "config_012",
+      "query": "How to set default response language?",
+      "category": "configuration",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_lang_001"],
+      "ground_truth": "Settings > Localization > Default Language. Or per-request: Accept-Language header. Affects error messages and UI text."
+    },
+    {
+      "id": "config_013",
+      "query": "How to configure retry behavior?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_retry_config_001"],
+      "ground_truth": "Set MAX_RETRIES (default 3), RETRY_DELAY (1s), RETRY_MAX_DELAY (30s). Configure retryable status codes in SDK options."
+    },
+    {
+      "id": "config_014",
+      "query": "How to enable request compression?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_compression_001"],
+      "ground_truth": "Set Accept-Encoding: gzip header. For request body: Content-Encoding: gzip. Reduces bandwidth by 70-90%."
+    },
+    {
+      "id": "config_015",
+      "query": "How to configure webhook retry policy?",
+      "category": "configuration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhook_config_001"],
+      "ground_truth": "Settings > Webhooks > Advanced. Set max retries (1-10), timeout (5-30s), backoff multiplier. Alert email on failures."
+    },
+    {
+      "id": "sec_001",
+      "query": "How to rotate API keys?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_key_rotation_001"],
+      "ground_truth": "Generate new key, update applications, verify working, then revoke old key. Overlap period prevents downtime."
+    },
+    {
+      "id": "sec_002",
+      "query": "How to implement OAuth flow?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_oauth_flow_001"],
+      "ground_truth": "Redirect user to /oauth/authorize with client_id, scope, redirect_uri. Exchange code for token at /oauth/token. Store refresh token securely."
+    },
+    {
+      "id": "sec_003",
+      "query": "What security headers should I use?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_headers_001"],
+      "ground_truth": "Set X-Content-Type-Options: nosniff, X-Frame-Options: DENY, Content-Security-Policy, Strict-Transport-Security."
+    },
+    {
+      "id": "sec_004",
+      "query": "How to store API keys securely?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_key_storage_001"],
+      "ground_truth": "Never commit to git. Use environment variables or secrets manager (AWS Secrets Manager, HashiCorp Vault). Encrypt at rest."
+    },
+    {
+      "id": "sec_005",
+      "query": "How to prevent injection attacks?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_injection_001"],
+      "ground_truth": "Validate and sanitize all input. Use parameterized queries. Encode output. API validates but defense in depth recommended."
+    },
+    {
+      "id": "sec_006",
+      "query": "How to implement SSO?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_sso_001"],
+      "ground_truth": "Enterprise feature. Configure SAML 2.0 or OIDC in Settings > SSO. Provide IdP metadata URL. Map attributes to user fields."
+    },
+    {
+      "id": "sec_007",
+      "query": "How to audit API access?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_audit_001"],
+      "ground_truth": "Settings > Audit Log. Shows all API calls with user, IP, action, timestamp. Export to SIEM. Retention: 90 days (Pro), 1 year (Enterprise)."
+    },
+    {
+      "id": "sec_008",
+      "query": "How to configure session timeout?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_session_001"],
+      "ground_truth": "Settings > Security > Session. Set idle timeout (default 30 min) and max duration (default 24 hours). Force re-auth for sensitive actions."
+    },
+    {
+      "id": "sec_009",
+      "query": "How to enable encryption?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_encryption_001"],
+      "ground_truth": "Encryption at rest enabled by default (AES-256). In transit: TLS 1.3. Enterprise: customer-managed keys (BYOK) option."
+    },
+    {
+      "id": "sec_010",
+      "query": "How to set up MFA?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_mfa_001"],
+      "ground_truth": "Profile > Security > MFA. Supports TOTP apps and hardware keys (WebAuthn). Backup codes for recovery. Can enforce org-wide."
+    },
+    {
+      "id": "sec_011",
+      "query": "How to handle token refresh?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_token_refresh_001"],
+      "ground_truth": "Access tokens expire in 1 hour. POST refresh_token to /oauth/token. Store refresh token securely. Rotate on each use."
+    },
+    {
+      "id": "sec_012",
+      "query": "What are API key scopes?",
+      "category": "security",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_scopes_001"],
+      "ground_truth": "Permissions attached to API keys: read, write, admin, billing. Use minimum necessary. Scopes checked on each request."
+    },
+    {
+      "id": "sec_013",
+      "query": "How to secure webhooks?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_webhook_security_001"],
+      "ground_truth": "Verify signature using webhook secret. Check timestamp within 5 minutes. Use HTTPS endpoint. Validate payload schema."
+    },
+    {
+      "id": "sec_014",
+      "query": "How to implement RBAC?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_rbac_001"],
+      "ground_truth": "Create roles with permission sets. Assign users to roles. Check permissions: user.can('resource:action'). Custom roles on Enterprise."
+    },
+    {
+      "id": "sec_015",
+      "query": "How to comply with GDPR?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_gdpr_001"],
+      "ground_truth": "Data export via API or dashboard. Deletion request honored within 30 days. DPA available. EU data residency option. Consent management APIs."
+    },
+    {
+      "id": "perf_001",
+      "query": "How to improve API response time?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_perf_001"],
+      "ground_truth": "Use connection pooling, enable compression, request only needed fields, implement caching, use regional endpoints."
+    },
+    {
+      "id": "perf_002",
+      "query": "How to optimize batch operations?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_batch_perf_001"],
+      "ground_truth": "Use batch endpoints instead of individual calls. Optimal batch size: 50-100 items. Use async for large batches."
+    },
+    {
+      "id": "perf_003",
+      "query": "How to implement caching?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_caching_001"],
+      "ground_truth": "Check Cache-Control headers. Use ETags for conditional requests. Cache responses client-side. Redis for server-side caching."
+    },
+    {
+      "id": "perf_004",
+      "query": "How to handle large file uploads?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_upload_perf_001"],
+      "ground_truth": "Use multipart upload for files >100MB. Get presigned URL, upload directly to storage, confirm completion. Resumable uploads supported."
+    },
+    {
+      "id": "perf_005",
+      "query": "How to reduce bandwidth usage?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_bandwidth_001"],
+      "ground_truth": "Enable gzip compression, use fields parameter to select specific fields, paginate results, use webhooks instead of polling."
+    },
+    {
+      "id": "perf_006",
+      "query": "How to monitor API performance?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_monitoring_001"],
+      "ground_truth": "Dashboard > Analytics shows latency, error rates, throughput. Set up alerts for thresholds. Export to Datadog, New Relic, etc."
+    },
+    {
+      "id": "perf_007",
+      "query": "What are the concurrent request limits?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_concurrency_001"],
+      "ground_truth": "Free: 10 concurrent. Starter: 50. Pro: 200. Enterprise: custom. Exceeding returns 429 with Retry-After header."
+    },
+    {
+      "id": "perf_008",
+      "query": "How to use regional endpoints?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_regions_001"],
+      "ground_truth": "Replace api.example.com with region prefix: us.api, eu.api, ap.api. Reduces latency by 50-80ms for closer regions."
+    },
+    {
+      "id": "perf_009",
+      "query": "How to optimize database queries via API?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_query_perf_001"],
+      "ground_truth": "Use filters to reduce result set, avoid deep pagination (use cursors), request indexed fields only, use search instead of list+filter."
+    },
+    {
+      "id": "perf_010",
+      "query": "How to handle high traffic spikes?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_scaling_001"],
+      "ground_truth": "Implement client-side rate limiting, use circuit breaker pattern, queue non-critical requests, upgrade plan for higher limits, contact for burst capacity."
+    },
+    {
+      "id": "perf_011",
+      "query": "How to benchmark API performance?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_benchmark_001"],
+      "ground_truth": "Use tools like k6, wrk, or Apache Bench. Test from multiple regions. Measure p50, p95, p99 latency. Compare against SLA targets."
+    },
+    {
+      "id": "perf_012",
+      "query": "How to reduce cold start latency?",
+      "category": "performance",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_coldstart_001"],
+      "ground_truth": "Keep-alive connections, use provisioned capacity (Enterprise), warm-up requests, smaller payload for first request."
+    },
+    {
+      "id": "perf_013",
+      "query": "What is the maximum payload size?",
+      "category": "performance",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_payload_001"],
+      "ground_truth": "Request body: 10MB max. Response: 50MB max. For larger data, use file endpoints or streaming. Compression recommended."
+    },
+    {
+      "id": "perf_014",
+      "query": "How to optimize webhook delivery?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhook_perf_001"],
+      "ground_truth": "Respond quickly (200 OK within 5s). Process async after acknowledgment. Use batch webhooks for high-volume events."
+    },
+    {
+      "id": "perf_015",
+      "query": "How to handle pagination efficiently?",
+      "category": "performance",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_pagination_perf_001"],
+      "ground_truth": "Use cursor-based pagination for large datasets. Keyset pagination is O(1). Offset pagination degrades with depth. Limit to 100 items per page."
+    },
+    {
+      "id": "int_001",
+      "query": "How to integrate with Slack?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_slack_001"],
+      "ground_truth": "Install Slack app from integrations page. Authorize workspace. Configure channels for notifications. Use /commands for quick actions."
+    },
+    {
+      "id": "int_002",
+      "query": "How to connect to Zapier?",
+      "category": "integration",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_zapier_001"],
+      "ground_truth": "Search for app in Zapier. Connect using API key. Select triggers and actions. Test zap before enabling."
+    },
+    {
+      "id": "int_003",
+      "query": "How to integrate with GitHub?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_github_001"],
+      "ground_truth": "Settings > Integrations > GitHub. Authorize OAuth app. Select repositories. Configure sync: issues, PRs, commits."
+    },
+    {
+      "id": "int_004",
+      "query": "How to set up Salesforce integration?",
+      "category": "integration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_salesforce_001"],
+      "ground_truth": "Enterprise feature. Connect via OAuth. Map fields between systems. Configure sync direction and frequency. Custom object support."
+    },
+    {
+      "id": "int_005",
+      "query": "How to integrate with AWS S3?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_s3_001"],
+      "ground_truth": "Provide AWS credentials or IAM role ARN. Specify bucket and path prefix. Enable for file exports or backup sync."
+    },
+    {
+      "id": "int_006",
+      "query": "How to connect to Google Sheets?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_sheets_001"],
+      "ground_truth": "Authorize Google account. Select or create spreadsheet. Map columns to fields. Configure one-way or two-way sync."
+    },
+    {
+      "id": "int_007",
+      "query": "How to integrate with Stripe?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_stripe_001"],
+      "ground_truth": "Connect Stripe account in billing settings. Enables automatic payment processing. Webhook events synced for payment status."
+    },
+    {
+      "id": "int_008",
+      "query": "How to set up JIRA integration?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_jira_001"],
+      "ground_truth": "Settings > Integrations > JIRA. Authenticate with Atlassian. Select project. Map issue types and fields. Two-way sync supported."
+    },
+    {
+      "id": "int_009",
+      "query": "How to integrate with Microsoft Teams?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_teams_001"],
+      "ground_truth": "Install from Teams app store or configure webhook. Post notifications to channels. Use cards for interactive messages."
+    },
+    {
+      "id": "int_010",
+      "query": "How to connect to Datadog?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_datadog_001"],
+      "ground_truth": "Provide Datadog API key. Metrics exported automatically. Configure dashboards in Datadog. Set up alerts on anomalies."
+    },
+    {
+      "id": "int_011",
+      "query": "How to integrate with Twilio?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_twilio_001"],
+      "ground_truth": "Enter Twilio Account SID and Auth Token. Configure phone numbers for SMS notifications. Enable two-way messaging."
+    },
+    {
+      "id": "int_012",
+      "query": "How to set up PagerDuty integration?",
+      "category": "integration",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_pagerduty_001"],
+      "ground_truth": "Create PagerDuty service integration key. Enter in Settings > Alerting. Configure alert routing and escalation policies."
+    },
+    {
+      "id": "int_013",
+      "query": "How to connect to Elasticsearch?",
+      "category": "integration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_elasticsearch_001"],
+      "ground_truth": "Provide Elasticsearch endpoint, credentials. Configure index mapping. Enable log streaming or data sync. Bulk operations supported."
+    },
+    {
+      "id": "int_014",
+      "query": "How to integrate with SendGrid?",
+      "category": "integration",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_sendgrid_001"],
+      "ground_truth": "Enter SendGrid API key. Configure from email address. Test email delivery. Webhooks for bounce/delivery tracking."
+    },
+    {
+      "id": "int_015",
+      "query": "How to set up Okta SSO?",
+      "category": "integration",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_okta_001"],
+      "ground_truth": "Create SAML app in Okta. Download metadata XML. Upload to SSO settings. Configure attribute mapping. Test login flow."
+    },
+    {
+      "id": "data_001",
+      "query": "What file formats are supported for import?",
+      "category": "data",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_import_001"],
+      "ground_truth": "CSV, JSON, XML, Excel (xlsx). Max 100MB per file. Headers required for CSV. Schema validation optional."
+    },
+    {
+      "id": "data_002",
+      "query": "How to import data from CSV?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_csv_import_001"],
+      "ground_truth": "Data > Import > Upload CSV. Map columns to fields. Preview first 10 rows. Choose create or update mode. Async for large files."
+    },
+    {
+      "id": "data_003",
+      "query": "How to export data to JSON?",
+      "category": "data",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_json_export_001"],
+      "ground_truth": "Data > Export > Select JSON format. Choose fields and date range. Download link sent via email for large exports."
+    },
+    {
+      "id": "data_004",
+      "query": "What are the data validation rules?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_validation_001"],
+      "ground_truth": "Required fields must be present. Types validated: string, number, date, email, URL. Custom regex patterns supported. Max string length: 65535."
+    },
+    {
+      "id": "data_005",
+      "query": "How to handle duplicate records?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_duplicates_001"],
+      "ground_truth": "Set unique constraints on fields. Import options: skip, update, or fail on duplicate. Use upsert API for atomic create-or-update."
+    },
+    {
+      "id": "data_006",
+      "query": "How to bulk delete data?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_bulk_delete_001"],
+      "ground_truth": "POST to /bulk/delete with array of IDs or filter criteria. Maximum 10,000 per request. Returns deletion count. Irreversible."
+    },
+    {
+      "id": "data_007",
+      "query": "What is the maximum record size?",
+      "category": "data",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_limits_003"],
+      "ground_truth": "Single record: 1MB max. Total fields per record: 500. Nested depth: 10 levels. Array items: 10,000."
+    },
+    {
+      "id": "data_008",
+      "query": "How to transform data during import?",
+      "category": "data",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_transform_001"],
+      "ground_truth": "Use field mapping with expressions. Functions: concat, split, format_date, lowercase. Custom JavaScript transforms on Enterprise."
+    },
+    {
+      "id": "data_009",
+      "query": "How to schedule data sync?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_sync_001"],
+      "ground_truth": "Data > Sync > Create Schedule. Set source (API, database, file). Configure frequency: hourly, daily, weekly. Error notifications."
+    },
+    {
+      "id": "data_010",
+      "query": "How to handle null values?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_null_001"],
+      "ground_truth": "Null represented as null in JSON, empty string in CSV. Optional fields can be null. Use 'omit null' parameter to exclude from response."
+    },
+    {
+      "id": "data_011",
+      "query": "How to backup data?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_backup_001"],
+      "ground_truth": "Automatic daily backups retained 30 days. Manual backup via Data > Backup. Download or sync to S3/GCS. Point-in-time recovery on Enterprise."
+    },
+    {
+      "id": "data_012",
+      "query": "What date formats are accepted?",
+      "category": "data",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_dates_001"],
+      "ground_truth": "ISO 8601 preferred: 2024-01-15T10:30:00Z. Also accepts: YYYY-MM-DD, Unix timestamp. Timezone defaults to UTC."
+    },
+    {
+      "id": "data_013",
+      "query": "How to migrate data between environments?",
+      "category": "data",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_migrate_001"],
+      "ground_truth": "Export from source environment. Import to target with ID preservation. Use migration API for large datasets. Verify record counts."
+    },
+    {
+      "id": "data_014",
+      "query": "How to archive old data?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_archive_001"],
+      "ground_truth": "Data > Archive > Set criteria (older than X days). Archived data queryable but slower. Reduces active storage costs."
+    },
+    {
+      "id": "data_015",
+      "query": "How to handle character encoding?",
+      "category": "data",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_encoding_001"],
+      "ground_truth": "UTF-8 required for API. CSV import: specify encoding header. BOM handled automatically. Emoji and special characters supported."
+    },
+    {
+      "id": "edge_typo_001",
+      "query": "authetication error",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_auth_001", "doc_errors_001"],
+      "expected_behavior": "fuzzy_match",
+      "ground_truth": "Authentication error - check API key format and validity."
+    },
+    {
+      "id": "edge_typo_002",
+      "query": "databse connection failed",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_errors_005"],
+      "expected_behavior": "fuzzy_match",
+      "ground_truth": "Database connection error - verify connection string and network access."
+    },
+    {
+      "id": "edge_typo_003",
+      "query": "configration settings",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_env_001"],
+      "expected_behavior": "fuzzy_match",
+      "ground_truth": "Configuration settings are managed via environment variables or config files."
+    },
+    {
+      "id": "edge_typo_004",
+      "query": "webhok setup",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_webhooks_setup_001"],
+      "expected_behavior": "fuzzy_match",
+      "ground_truth": "Webhook setup: Settings > Webhooks > Add Endpoint."
+    },
+    {
+      "id": "edge_typo_005",
+      "query": "api ratelimit",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_limits_001", "doc_ratelimit_001"],
+      "expected_behavior": "fuzzy_match",
+      "ground_truth": "API rate limits vary by plan: Free 100/min, Pro 1000/min, Enterprise unlimited."
+    },
+    {
+      "id": "edge_error_001",
+      "query": "ERR_CONNECTION_REFUSED",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_005"],
+      "expected_behavior": "exact_match",
+      "ground_truth": "Connection refused - service down or firewall blocking. Check status page."
+    },
+    {
+      "id": "edge_error_002",
+      "query": "SQLSTATE 42S22",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_004"],
+      "expected_behavior": "exact_match",
+      "ground_truth": "SQL error code 42S22 indicates column not found. Check field names in query."
+    },
+    {
+      "id": "edge_error_003",
+      "query": "0x80070005",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_010"],
+      "expected_behavior": "exact_match",
+      "ground_truth": "Windows error code for access denied. Check permissions."
+    },
+    {
+      "id": "edge_error_004",
+      "query": "NullPointerException",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_004"],
+      "expected_behavior": "exact_match",
+      "ground_truth": "Null reference error - check for missing required fields in request."
+    },
+    {
+      "id": "edge_error_005",
+      "query": "HTTP 502 Bad Gateway",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_errors_003"],
+      "expected_behavior": "exact_match",
+      "ground_truth": "502 Bad Gateway indicates upstream server error. Retry or check status page."
+    },
+    {
+      "id": "edge_special_001",
+      "query": "C++ SDK installation",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_sdk_001"],
+      "expected_behavior": "handle_special_chars",
+      "ground_truth": "C++ SDK available as community package. Use vcpkg or conan for installation."
+    },
+    {
+      "id": "edge_special_002",
+      "query": "configure .env file",
+      "category": "edge_case",
+      "difficulty": "easy",
+      "relevant_doc_ids": ["doc_env_001"],
+      "expected_behavior": "handle_dotfile",
+      "ground_truth": "Create .env file in project root with KEY=value format. Never commit to git."
+    },
+    {
+      "id": "edge_special_003",
+      "query": "OAuth 2.0 vs 1.0",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_oauth_001"],
+      "expected_behavior": "handle_versions",
+      "ground_truth": "OAuth 2.0 is simpler, uses tokens. OAuth 1.0 uses signatures. We support OAuth 2.0 only."
+    },
+    {
+      "id": "edge_special_004",
+      "query": "error: cannot find module '@company/sdk'",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_install_001"],
+      "expected_behavior": "handle_npm_format",
+      "ground_truth": "Module not found - run npm install. Check package.json and node_modules folder."
+    },
+    {
+      "id": "edge_special_005",
+      "query": "100% CPU usage",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_perf_001"],
+      "expected_behavior": "handle_special_chars",
+      "ground_truth": "High CPU usually indicates inefficient code or infinite loop. Profile your application."
+    },
+    {
+      "id": "edge_ambig_001",
+      "query": "connection",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_pool_001", "doc_errors_005"],
+      "expected_behavior": "diverse_results",
+      "ground_truth": "Connection refers to database connection, API connection, or WebSocket connection."
+    },
+    {
+      "id": "edge_ambig_002",
+      "query": "timeout",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_timeout_001", "doc_timeout_002", "doc_errors_009"],
+      "expected_behavior": "diverse_results",
+      "ground_truth": "Timeout can refer to API request timeout, connection timeout, or session timeout."
+    },
+    {
+      "id": "edge_ambig_003",
+      "query": "token",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_jwt_001", "doc_oauth_001", "doc_errors_007"],
+      "expected_behavior": "diverse_results",
+      "ground_truth": "Token refers to API token, JWT token, OAuth access token, or refresh token."
+    },
+    {
+      "id": "edge_ambig_004",
+      "query": "key",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_keys_001", "doc_encryption_001"],
+      "expected_behavior": "diverse_results",
+      "ground_truth": "Key refers to API key, encryption key, or configuration key depending on context."
+    },
+    {
+      "id": "edge_ambig_005",
+      "query": "error",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_001", "doc_errors_003"],
+      "expected_behavior": "diverse_results",
+      "ground_truth": "Error handling varies by type. Check specific error code for resolution steps."
+    },
+    {
+      "id": "edge_long_001",
+      "query": "I followed all the steps in the documentation but when I try to authenticate it says invalid token even though I just generated it and copied it exactly",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_007", "doc_keys_001"],
+      "expected_behavior": "extract_key_issue",
+      "ground_truth": "Invalid token after generation - check for whitespace when copying, verify token type matches endpoint."
+    },
+    {
+      "id": "edge_long_002",
+      "query": "we are experiencing intermittent failures with the API where sometimes requests work fine and sometimes they timeout and we cannot figure out the pattern",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_errors_009", "doc_perf_001"],
+      "expected_behavior": "extract_key_issue",
+      "ground_truth": "Intermittent timeouts suggest network issues, rate limiting, or server load. Check response headers for rate limit info."
+    },
+    {
+      "id": "edge_long_003",
+      "query": "after upgrading the SDK to the latest version all our tests started failing with serialization errors when sending dates to the API",
+      "category": "edge_case",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_dates_001", "doc_versioning_001"],
+      "expected_behavior": "extract_key_issue",
+      "ground_truth": "Date serialization changed - use ISO 8601 format. Check SDK changelog for breaking changes."
+    },
+    {
+      "id": "edge_multilang_001",
+      "query": "como configurar la autenticación",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_auth_001"],
+      "expected_behavior": "detect_language",
+      "ground_truth": "Authentication setup: Include API key in Authorization header as Bearer token."
+    },
+    {
+      "id": "edge_multilang_002",
+      "query": "comment configurer les webhooks",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_webhooks_setup_001"],
+      "expected_behavior": "detect_language",
+      "ground_truth": "Webhook configuration: Settings > Webhooks > Add Endpoint. Enter URL and select events."
+    },
+    {
+      "id": "edge_multilang_003",
+      "query": "wie kann ich die API authentifizieren",
+      "category": "edge_case",
+      "difficulty": "medium",
+      "relevant_doc_ids": ["doc_auth_001"],
+      "expected_behavior": "detect_language",
+      "ground_truth": "API authentication: Use Bearer token in Authorization header with your API key."
+    },
+    {
+      "id": "adv_001",
+      "query": "What's the best way to handle pagination for real-time data that's constantly changing?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_cursors_001", "doc_pagination_perf_001"],
+      "ground_truth": "Use cursor-based pagination with timestamp cursors. Cursors are stable despite data changes. Combine with webhooks for real-time updates."
+    },
+    {
+      "id": "adv_002",
+      "query": "How do I implement optimistic locking to prevent concurrent update conflicts?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_idempotency_001"],
+      "ground_truth": "Use version field or ETag. Include current version in update request. API returns 409 Conflict if version mismatch. Retry with fresh data."
+    },
+    {
+      "id": "adv_003",
+      "query": "What's the recommended architecture for high-availability webhook processing?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_webhooks_001", "doc_webhook_perf_001"],
+      "ground_truth": "Use message queue (SQS, RabbitMQ) to decouple receipt from processing. Acknowledge immediately, process async. Implement idempotency with event ID."
+    },
+    {
+      "id": "adv_004",
+      "query": "How to design a multi-tenant application using your API?",
+      "category": "conceptual",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_rbac_001", "doc_scopes_001"],
+      "ground_truth": "Use separate API keys per tenant or JWT with tenant claim. Implement tenant isolation at application layer. Use metadata fields for tenant ID."
+    },
+    {
+      "id": "adv_005",
+      "query": "What's the strategy for zero-downtime API key rotation?",
+      "category": "security",
+      "difficulty": "hard",
+      "relevant_doc_ids": ["doc_key_rotation_001"],
+      "ground_truth": "Generate new key, configure both keys in app, gradually shift traffic, monitor for old key usage, revoke after confirmation period."
+    }
+  ]
+}

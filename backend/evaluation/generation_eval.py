@@ -16,6 +16,11 @@ from typing import Optional
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file
 
+import warnings
+
+# Suppress ragas deprecation warnings (metrics will be moved in v1.0)
+warnings.filterwarnings("ignore", message=".*Importing.*from 'ragas.metrics'.*deprecated.*")
+
 from ragas import evaluate
 from ragas.metrics import (
     faithfulness,
@@ -55,46 +60,50 @@ def get_ragas_llm():
     """
     Get LLM for Ragas evaluation based on config settings.
 
-    Priority:
-    1. OpenRouter (if OPENROUTER_API_KEY set) - FREE models available
-    2. OpenAI (if OPENAI_API_KEY set)
-    3. HuggingFace local (if available)
+    Uses LLM__PROVIDER and LLM__MODEL from config:
+    - openrouter: Uses OPENROUTER_API_KEY, model format "provider/model"
+    - openai: Uses OPENAI_API_KEY, model format "gpt-4o-mini"
+    - local: Uses LOCAL_LLM_URL, no API key needed
 
-    Supports:
-    - OpenRouter (free models like llama, gemma, etc.)
-    - OpenAI
-    - HuggingFace (local, free)
+    Fallback to HuggingFace local if no provider configured.
+
+    .env example:
+        LLM__PROVIDER=openrouter
+        LLM__MODEL=openai/gpt-4o-mini
+        OPENROUTER_API_KEY=sk-or-xxx
     """
     if not HAS_LANGCHAIN_OPENAI:
         logger.error("langchain-openai required. Run: pip install langchain-openai")
         return None
 
-    # Check for OpenRouter first (free models available!)
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    provider = settings.llm.provider
+    model = settings.llm.model
+    api_key = settings.llm.api_key
+    base_url = settings.llm.base_url
 
-    if openrouter_key:
+    # Use configured provider
+    if provider in ("openrouter", "openai") and api_key:
         try:
-            logger.info(f"Using OpenRouter LLM: {settings.llm.openai_model}")
+            logger.info(f"Using {provider} LLM: {model}")
             return ChatOpenAI(
-                model=settings.llm.openai_model,
-                api_key=openrouter_key,
-                base_url=openrouter_base,
+                model=model,
+                api_key=api_key,
+                base_url=base_url if provider == "openrouter" else None,
             )
         except Exception as e:
-            logger.warning(f"OpenRouter LLM setup failed: {e}")
+            logger.warning(f"{provider} LLM setup failed: {e}")
 
-    # Check for OpenAI
-    openai_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY")
-    if openai_key and openai_key != "sk-your-openai-api-key":
+    # Local provider (OpenAI-compatible API)
+    if provider == "local":
         try:
-            logger.info(f"Using OpenAI LLM: {settings.llm.openai_model}")
+            logger.info(f"Using local LLM: {model} at {base_url}")
             return ChatOpenAI(
-                model=settings.llm.openai_model,
-                api_key=openai_key,
+                model=model,
+                api_key="not-needed",  # Local servers often don't need API key
+                base_url=base_url,
             )
         except Exception as e:
-            logger.warning(f"OpenAI LLM setup failed: {e}")
+            logger.warning(f"Local LLM setup failed: {e}")
 
     # Fallback to HuggingFace local models (completely free, runs locally)
     if HAS_LANGCHAIN_HF and HAS_TRANSFORMERS:
@@ -106,7 +115,12 @@ def get_ragas_llm():
         except Exception as e:
             logger.warning(f"HuggingFace LLM setup failed: {e}")
 
-    logger.error("No LLM available. Set OPENROUTER_API_KEY (free) or OPENAI_API_KEY")
+    logger.error(
+        "No LLM available. Configure in .env:\n"
+        "  LLM__PROVIDER=openrouter\n"
+        "  LLM__MODEL=openai/gpt-4o-mini\n"
+        "  OPENROUTER_API_KEY=sk-or-xxx"
+    )
     return None
 
 
@@ -114,13 +128,17 @@ def get_ragas_embeddings():
     """
     Get embeddings for Ragas evaluation based on config settings.
 
-    Priority:
-    1. HuggingFace (free, runs locally)
-    2. OpenAI (if api key available)
+    Uses EMBEDDING__MODEL_PROVIDER from config:
+    - huggingface/local: Free, runs locally
+    - openai: Uses OPENAI_API_KEY
+
+    .env example:
+        EMBEDDING__MODEL_PROVIDER=huggingface
+        EMBEDDING__MODEL_NAME=e5-large-v2
     """
     provider = settings.embedding.model_provider.lower()
 
-    # For HuggingFace/free models
+    # For HuggingFace/free models (recommended for evaluation)
     if provider in ("huggingface", "local") and HAS_LANGCHAIN_HF:
         try:
             logger.info(f"Using HuggingFace embeddings: {settings.embedding.model_name}")
@@ -130,9 +148,9 @@ def get_ragas_embeddings():
         except Exception as e:
             logger.warning(f"HuggingFace embeddings setup failed: {e}")
 
-    # For OpenAI
+    # For OpenAI embeddings
     openai_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY")
-    if openai_key and openai_key != "sk-your-openai-api-key" and HAS_LANGCHAIN_OPENAI:
+    if provider == "openai" and openai_key and HAS_LANGCHAIN_OPENAI:
         try:
             from langchain_openai import OpenAIEmbeddings
             logger.info(f"Using OpenAI embeddings: {settings.embedding.model_name}")
@@ -143,9 +161,16 @@ def get_ragas_embeddings():
         except Exception as e:
             logger.warning(f"OpenAI embeddings setup failed: {e}")
 
-    logger.warning("No embeddings available, Ragas will use defaults")
-    return None
+    # Fallback: try HuggingFace anyway
+    if HAS_LANGCHAIN_HF:
+        try:
+            fallback_model = "sentence-transformers/all-MiniLM-L6-v2"
+            logger.info(f"Using fallback HuggingFace embeddings: {fallback_model}")
+            return HuggingFaceEmbeddings(model_name=fallback_model)
+        except Exception as e:
+            logger.warning(f"Fallback embeddings setup failed: {e}")
 
+    logger.warning("No embeddings available, Ragas will use defaults")
     return None
 
 
@@ -171,10 +196,11 @@ class GenerationMetrics:
         faithfulness_target: float = 0.85,
         relevancy_target: float = 0.80,
     ) -> dict[str, bool]:
-        """Check if metrics meet production targets."""
+        """Check if metrics meet production targets. NaN values are considered failures."""
+        import math
         return {
-            "faithfulness": self.faithfulness >= faithfulness_target,
-            "answer_relevancy": self.answer_relevancy >= relevancy_target,
+            "faithfulness": not math.isnan(self.faithfulness) and self.faithfulness >= faithfulness_target,
+            "answer_relevancy": not math.isnan(self.answer_relevancy) and self.answer_relevancy >= relevancy_target,
         }
 
 
@@ -266,11 +292,13 @@ class GenerationEvaluator:
 
         result = evaluate(hf_dataset, metrics=self.metrics, **kwargs)
 
+        # Convert EvaluationResult to pandas DataFrame and get mean scores
+        df = result.to_pandas()
         return GenerationMetrics(
-            faithfulness=result.get("faithfulness", 0.0),
-            answer_relevancy=result.get("answer_relevancy", 0.0),
-            context_precision=result.get("context_precision", 0.0),
-            context_recall=result.get("context_recall", 0.0),
+            faithfulness=df["faithfulness"].mean() if "faithfulness" in df.columns else 0.0,
+            answer_relevancy=df["answer_relevancy"].mean() if "answer_relevancy" in df.columns else 0.0,
+            context_precision=df["context_precision"].mean() if "context_precision" in df.columns else 0.0,
+            context_recall=df["context_recall"].mean() if "context_recall" in df.columns else 0.0,
         )
 
     def evaluate_from_results(
@@ -340,32 +368,61 @@ def run_evaluation(
     return metrics, passed
 
 
+def _format_metric(value: float) -> str:
+    """Format metric value, handling NaN."""
+    import math
+    if math.isnan(value):
+        return "N/A (model couldn't compute)"
+    return f"{value:.4f}"
+
+
 def print_report(metrics: GenerationMetrics, dataset_name: str = "dataset") -> None:
     """Print formatted evaluation report."""
+    import math
+
     print("\n" + "=" * 60)
     print(f"GENERATION EVALUATION REPORT: {dataset_name}")
     print("=" * 60)
 
     print("\n[Ragas Metrics]")
-    print(f"  Faithfulness:       {metrics.faithfulness:.4f}")
-    print(f"  Answer Relevancy:   {metrics.answer_relevancy:.4f}")
-    print(f"  Context Precision:  {metrics.context_precision:.4f}")
-    print(f"  Context Recall:     {metrics.context_recall:.4f}")
+    print(f"  Faithfulness:       {_format_metric(metrics.faithfulness)}")
+    print(f"  Answer Relevancy:   {_format_metric(metrics.answer_relevancy)}")
+    print(f"  Context Precision:  {_format_metric(metrics.context_precision)}")
+    print(f"  Context Recall:     {_format_metric(metrics.context_recall)}")
+
+    # Check if any metrics are NaN
+    has_nan = any(math.isnan(v) for v in [
+        metrics.faithfulness, metrics.answer_relevancy,
+        metrics.context_precision, metrics.context_recall
+    ])
+    if has_nan:
+        print("\n[Warning] Some metrics returned N/A.")
+        print("  This typically happens with free/small LLMs that don't")
+        print("  follow RAGAS's required response format precisely.")
+        print("  For accurate results, use gpt-4o-mini or similar.")
 
     print("\n[Target Check]")
     for name, passed in metrics.check_targets().items():
-        print(f"  {name}: {'PASS' if passed else 'FAIL'}")
+        value = getattr(metrics, name)
+        if math.isnan(value):
+            print(f"  {name}: N/A")
+        else:
+            print(f"  {name}: {'PASS' if passed else 'FAIL'}")
     print("=" * 60)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    # Demo without actual LLM calls
     print("Generation Evaluation Module")
-    print("Usage: evaluator.evaluate(dataset, llm=your_llm)")
+    print("Running RAGAS evaluation...\n")
 
+    # Create synthetic dataset
     dataset = create_synthetic_dataset(num_samples=5)
-    print(f"\nSynthetic dataset created with {len(dataset.samples)} samples")
-    print("Sample question:", dataset.samples[0].question)
-    print("Sample answer:", dataset.samples[0].answer)
+    print(f"Dataset: {len(dataset.samples)} samples")
+
+    # Run actual evaluation
+    metrics, passed = run_evaluation(dataset)
+
+    # Print formatted report
+    print_report(metrics, dataset.name)

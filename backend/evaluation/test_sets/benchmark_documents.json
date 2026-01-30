@@ -1,0 +1,1093 @@
+{
+  "description": "Universal RAG Retrieval Benchmark - Document Corpus",
+  "version": "1.0.0",
+  "usage": "Ingest as vector store corpus. Query with benchmark_queries.json",
+  "total_documents": 150,
+  "documents": [
+    {
+      "id": "doc_auth_001",
+      "title": "API Authentication Guide",
+      "category": "technical_api",
+      "content": "To authenticate API requests, include your API key in the Authorization header using Bearer token format. Example: 'Authorization: Bearer YOUR_API_KEY'. API keys can be generated from the dashboard under Settings > API Keys. Each key has associated scopes that determine what actions it can perform. Never share API keys or commit them to version control. For production, use environment variables or a secrets manager.",
+      "keywords": ["authentication", "api key", "bearer token", "authorization header"]
+    },
+    {
+      "id": "doc_auth_002",
+      "title": "Authentication vs Authorization",
+      "category": "conceptual",
+      "content": "Authentication and authorization are distinct security concepts. Authentication verifies identity - confirming who you are through credentials like API keys, passwords, or tokens. Authorization determines permissions - what actions you're allowed to perform after being authenticated. In our API, authentication happens first via the API key, then authorization checks if that key has the required scopes for the requested operation. Always authenticate before checking authorization.",
+      "keywords": ["authentication", "authorization", "permissions", "identity", "security"]
+    },
+    {
+      "id": "doc_limits_001",
+      "title": "API Rate Limits",
+      "category": "technical_api",
+      "content": "API rate limits control the number of requests you can make. Limits vary by plan: Free tier allows 100 requests per minute, Pro plan allows 1000 requests per minute, and Enterprise has unlimited requests with custom configurations. When you exceed the limit, the API returns HTTP 429 Too Many Requests with a Retry-After header indicating when you can retry. Implement exponential backoff in your client code to handle rate limiting gracefully.",
+      "keywords": ["rate limit", "requests per minute", "429", "throttling", "quota"]
+    },
+    {
+      "id": "doc_limits_002",
+      "title": "Request Size Limits",
+      "category": "technical_api",
+      "content": "The maximum request body size is 10MB for standard API calls. For larger files, use multipart upload endpoints or presigned URLs for direct storage upload. Response bodies can be up to 50MB. If you're working with large datasets, consider using pagination, streaming endpoints, or batch processing. Request headers are limited to 8KB total. URL length should not exceed 2000 characters.",
+      "keywords": ["request size", "payload limit", "file size", "upload limit", "10MB"]
+    },
+    {
+      "id": "doc_limits_003",
+      "title": "Record Size and Field Limits",
+      "category": "data",
+      "content": "Individual records have a maximum size of 1MB. Each record can have up to 500 fields. Nested object depth is limited to 10 levels. Array fields can contain up to 10,000 items. String fields have a maximum length of 65,535 characters. These limits ensure optimal database performance and query speed. For larger data structures, consider splitting into multiple records with references.",
+      "keywords": ["record size", "field limits", "nested depth", "array size", "string length"]
+    },
+    {
+      "id": "doc_pagination_001",
+      "title": "API Pagination",
+      "category": "technical_api",
+      "content": "Paginate API results using limit and offset parameters. The limit parameter controls how many records to return (default 20, max 100). The offset parameter specifies how many records to skip. Response includes total_count for the complete result set and has_more boolean indicating if more pages exist. Example: GET /items?limit=50&offset=100 returns items 101-150. For large datasets, consider cursor-based pagination for better performance.",
+      "keywords": ["pagination", "limit", "offset", "page", "total_count", "has_more"]
+    },
+    {
+      "id": "doc_methods_001",
+      "title": "HTTP Methods Overview",
+      "category": "technical_api",
+      "content": "The API supports standard HTTP methods: GET for retrieving resources without side effects, POST for creating new resources, PUT for full resource replacement requiring all fields, PATCH for partial updates where only provided fields change, and DELETE for removing resources. HEAD returns headers only for checking existence. OPTIONS returns allowed methods for CORS preflight. Each method has specific idempotency guarantees - GET, PUT, DELETE are idempotent while POST is not.",
+      "keywords": ["HTTP methods", "GET", "POST", "PUT", "PATCH", "DELETE", "REST"]
+    },
+    {
+      "id": "doc_methods_002",
+      "title": "PUT vs PATCH Comparison",
+      "category": "conceptual",
+      "content": "PUT and PATCH both update resources but differ significantly. PUT replaces the entire resource - you must provide all fields, and omitted fields are set to null or defaults. PATCH performs a partial update - only fields you include are modified, others remain unchanged. Use PUT when you have the complete updated resource. Use PATCH for targeted field updates, which is more efficient for single-field changes and reduces the risk of accidental data loss.",
+      "keywords": ["PUT", "PATCH", "update", "partial update", "replace", "modify"]
+    },
+    {
+      "id": "doc_versioning_001",
+      "title": "API Versioning",
+      "category": "technical_api",
+      "content": "API versioning manages breaking changes while maintaining backward compatibility. Include the version in the URL path: /v1/resources, /v2/resources. Alternatively, use the Accept header with a version parameter: Accept: application/vnd.api+json;version=2. When we release a new version, older versions remain supported for a deprecation period (typically 12-24 months). Check the changelog for version differences and migration guides.",
+      "keywords": ["versioning", "API version", "v1", "v2", "backward compatibility", "deprecation"]
+    },
+    {
+      "id": "doc_versioning_002",
+      "title": "Understanding API Versioning Strategies",
+      "category": "conceptual",
+      "content": "API versioning strategies include URL path versioning (/v1/), header versioning (Accept-Version), and query parameter versioning (?version=1). URL path is most visible and cacheable. Header versioning keeps URLs clean but is less discoverable. We use URL path versioning for clarity. Older versions are deprecated but continue to function. Check deprecation warnings in response headers. Plan migrations before end-of-life dates.",
+      "keywords": ["versioning strategy", "URL versioning", "header versioning", "deprecation", "migration"]
+    },
+    {
+      "id": "doc_formats_001",
+      "title": "Response Formats",
+      "category": "technical_api",
+      "content": "JSON is the default and recommended response format for all API calls. Set Accept: application/json header explicitly for clarity. XML responses are available by setting Accept: application/xml, useful for legacy system integration. CSV format is available for bulk data export endpoints. The response Content-Type header indicates the actual format returned. All responses use UTF-8 encoding.",
+      "keywords": ["JSON", "XML", "CSV", "response format", "content type", "Accept header"]
+    },
+    {
+      "id": "doc_filtering_001",
+      "title": "Filtering API Results",
+      "category": "technical_api",
+      "content": "Filter API results using query parameters. Basic filters: ?status=active&type=premium. Date filters: ?created_after=2024-01-01&created_before=2024-12-31. Supported operators include eq (equals), ne (not equals), gt (greater than), lt (less than), gte, lte, and contains for partial string matching. Combine multiple filters with AND logic by default. Example: ?status=active&priority=high returns records matching both conditions.",
+      "keywords": ["filter", "query parameters", "operators", "contains", "date filter", "search"]
+    },
+    {
+      "id": "doc_sorting_001",
+      "title": "Sorting Results",
+      "category": "technical_api",
+      "content": "Sort API results using the sort parameter with field names. Ascending order is default: ?sort=created_at. For descending order, prefix with minus: ?sort=-created_at. Multiple sort fields: ?sort=-priority,created_at (primary by priority descending, secondary by created_at ascending). Only indexed fields support sorting. Check documentation for sortable fields per endpoint.",
+      "keywords": ["sort", "order", "ascending", "descending", "sorting", "order by"]
+    },
+    {
+      "id": "doc_endpoint_001",
+      "title": "API Base URL",
+      "category": "technical_api",
+      "content": "The production API base URL is https://api.example.com/v1. For testing and development, use the sandbox environment at https://sandbox.api.example.com/v1. Sandbox has the same functionality but uses test data that resets daily. Regional endpoints available: us.api.example.com, eu.api.example.com, ap.api.example.com for reduced latency. Always use HTTPS; HTTP requests are automatically redirected.",
+      "keywords": ["base URL", "endpoint", "sandbox", "production", "regional", "HTTPS"]
+    },
+    {
+      "id": "doc_batch_001",
+      "title": "Batch API Requests",
+      "category": "technical_api",
+      "content": "Make batch API requests by POSTing to the /batch endpoint with an array of operations. Each operation specifies method, path, and optional body. Maximum 100 operations per batch request. Operations execute in parallel where possible. Response returns array of individual results in same order. Use batch requests to reduce HTTP overhead and improve throughput. Partial failures return mixed success/error results.",
+      "keywords": ["batch", "bulk", "multiple requests", "parallel", "batch endpoint"]
+    },
+    {
+      "id": "doc_timeout_001",
+      "title": "API Timeouts",
+      "category": "technical_api",
+      "content": "Recommended client timeout is 30 seconds for standard API requests. For bulk operations and exports, increase to 120 seconds. Server-side timeout is 300 seconds (5 minutes) maximum. If a request exceeds this, it's terminated with 504 Gateway Timeout. Long-running operations should use async endpoints that return a job ID for polling. Set timeouts appropriately to avoid hanging connections.",
+      "keywords": ["timeout", "request timeout", "gateway timeout", "504", "async", "long-running"]
+    },
+    {
+      "id": "doc_timeout_002",
+      "title": "Configuring Request Timeout",
+      "category": "configuration",
+      "content": "Configure request timeout using the TIMEOUT_MS environment variable or in the SDK client configuration: client = Client(timeout=60000) for 60 seconds. Default timeout is 30000ms (30 seconds). Different operations may need different timeouts - search operations are typically fast (10s), while export operations may need longer (120s). Timeout errors raise TimeoutError exception in most SDKs.",
+      "keywords": ["timeout configuration", "TIMEOUT_MS", "client timeout", "SDK timeout", "default timeout"]
+    },
+    {
+      "id": "doc_webhooks_001",
+      "title": "Webhook Retry Behavior",
+      "category": "technical_api",
+      "content": "Webhooks retry automatically on failure with exponential backoff. Retry schedule: first retry after 1 minute, second after 5 minutes, third after 30 minutes. Total of 3 retry attempts. Your endpoint must return HTTP 2xx status to acknowledge receipt. Non-2xx responses or timeouts trigger retries. Implement idempotency using the event ID to handle duplicate deliveries that may occur during retries.",
+      "keywords": ["webhook retry", "exponential backoff", "retry policy", "idempotency", "acknowledgment"]
+    },
+    {
+      "id": "doc_webhooks_setup_001",
+      "title": "Webhook Configuration Guide",
+      "category": "howto",
+      "content": "Set up webhooks in Settings > Webhooks > Add Endpoint. Enter your HTTPS endpoint URL - HTTP not accepted for security. Select which events to receive: create, update, delete, or all. Click Test to send a sample event and verify connectivity. Your endpoint should respond within 5 seconds with 200 OK. Configure multiple endpoints for redundancy. Each endpoint receives events independently.",
+      "keywords": ["webhook setup", "configure webhook", "webhook endpoint", "event subscription", "webhook test"]
+    },
+    {
+      "id": "doc_webhooks_verify_001",
+      "title": "Webhook Signature Verification",
+      "category": "security",
+      "content": "Validate webhook signatures to ensure requests originate from our servers. Compute HMAC-SHA256 hash of the raw request body using your webhook secret as the key. Compare the computed hash with the X-Signature header value. Reject requests if signatures don't match. Also verify the X-Timestamp header is within 5 minutes of current time to prevent replay attacks. Most SDKs include helper functions for verification.",
+      "keywords": ["webhook signature", "HMAC-SHA256", "verify webhook", "X-Signature", "webhook security"]
+    },
+    {
+      "id": "doc_webhooks_concept_001",
+      "title": "What Are Webhooks",
+      "category": "conceptual",
+      "content": "Webhooks are HTTP callbacks triggered by events in our system. Instead of your application polling for changes, we push data to your URL when events occur. This enables real-time notifications and reduces unnecessary API calls. Common webhook events include resource creation, updates, deletions, and status changes. Webhooks contain the event type, timestamp, and relevant data payload in JSON format.",
+      "keywords": ["webhook", "HTTP callback", "push notification", "event driven", "real-time"]
+    },
+    {
+      "id": "doc_webhook_config_001",
+      "title": "Advanced Webhook Configuration",
+      "category": "configuration",
+      "content": "Configure advanced webhook settings in Settings > Webhooks > Advanced. Set maximum retries from 1 to 10 (default 3). Configure timeout from 5 to 30 seconds (default 10). Set backoff multiplier for retry delays. Enable alert email to receive notifications when webhooks fail repeatedly. Configure payload filtering to receive only specific fields. Set rate limiting per endpoint to control delivery speed.",
+      "keywords": ["webhook config", "retry config", "webhook timeout", "backoff", "alert email"]
+    },
+    {
+      "id": "doc_webhook_security_001",
+      "title": "Webhook Security Best Practices",
+      "category": "security",
+      "content": "Secure your webhook endpoints: Always verify signatures using HMAC-SHA256 with your webhook secret. Check timestamp header is recent (within 5 minutes) to prevent replay attacks. Use HTTPS endpoints only. Validate payload schema matches expected format. Implement IP allowlist if possible - webhook IPs are published in our documentation. Process webhooks asynchronously to prevent timeout issues.",
+      "keywords": ["webhook security", "signature verification", "replay attack", "HTTPS", "IP allowlist"]
+    },
+    {
+      "id": "doc_webhook_perf_001",
+      "title": "Webhook Performance Optimization",
+      "category": "performance",
+      "content": "Optimize webhook delivery: Respond quickly - acknowledge with 200 OK within 5 seconds, then process asynchronously. Use a message queue (SQS, RabbitMQ) to decouple receipt from processing. For high-volume events, enable batch webhooks to receive multiple events in single request. Monitor webhook latency in dashboard. Implement circuit breaker pattern to handle downstream failures gracefully.",
+      "keywords": ["webhook performance", "async processing", "message queue", "batch webhooks", "circuit breaker"]
+    },
+    {
+      "id": "doc_sla_001",
+      "title": "API Response Time SLA",
+      "category": "technical_api",
+      "content": "Our Service Level Agreement guarantees P95 latency under 200ms for read operations and under 500ms for write operations. P99 latency is under 500ms for reads, under 1000ms for writes. These targets apply to the time spent processing your request, not including network transit time. We provide 99.9% uptime guarantee with credits for any downtime below this threshold.",
+      "keywords": ["SLA", "latency", "P95", "P99", "response time", "uptime guarantee"]
+    },
+    {
+      "id": "doc_sla_002",
+      "title": "Uptime SLA Details",
+      "category": "faq",
+      "content": "Uptime SLA varies by plan: Pro plan includes 99.9% uptime guarantee, Enterprise plan includes 99.99% uptime. Credits are issued for downtime: 10% credit for availability below 99.9%, 25% credit below 99.5%, 50% credit below 99%. Downtime excludes scheduled maintenance (announced 48 hours in advance). Check status.example.com for real-time status and incident history.",
+      "keywords": ["uptime SLA", "availability", "downtime credit", "99.9%", "99.99%", "maintenance"]
+    },
+    {
+      "id": "doc_cursors_001",
+      "title": "Cursor-Based Pagination",
+      "category": "technical_api",
+      "content": "Cursor-based pagination is more efficient than offset for large datasets. Request: GET /items?limit=50. Response includes next_cursor field. Subsequent request: GET /items?limit=50&cursor=abc123. Cursors encode position in the result set and remain stable even as data changes. More efficient than offset because database doesn't need to skip rows. Cursors expire after 24 hours. Use for datasets over 10,000 records.",
+      "keywords": ["cursor pagination", "next_cursor", "keyset pagination", "efficient pagination", "large dataset"]
+    },
+    {
+      "id": "doc_errors_001",
+      "title": "HTTP 401 Unauthorized Error",
+      "category": "troubleshooting",
+      "content": "HTTP 401 Unauthorized indicates authentication failure. Common causes: missing Authorization header, invalid API key, expired token, or malformed Bearer token format. Resolution: Verify API key exists and is active in dashboard. Check Authorization header format: 'Authorization: Bearer YOUR_API_KEY'. Ensure no extra whitespace around the key. Generate a new key if current one is compromised.",
+      "keywords": ["401", "unauthorized", "authentication error", "invalid API key", "missing header"]
+    },
+    {
+      "id": "doc_errors_002",
+      "title": "HTTP 429 Too Many Requests",
+      "category": "troubleshooting",
+      "content": "HTTP 429 indicates rate limit exceeded. Check the Retry-After header for seconds until limit resets. Implement exponential backoff: wait 1s, 2s, 4s, 8s between retries. Consider caching responses to reduce request volume. Monitor your usage in dashboard. Upgrade plan for higher limits. For batch operations, use the dedicated batch endpoint which has separate limits.",
+      "keywords": ["429", "rate limit exceeded", "too many requests", "Retry-After", "exponential backoff"]
+    },
+    {
+      "id": "doc_errors_003",
+      "title": "HTTP 500 Internal Server Error",
+      "category": "troubleshooting",
+      "content": "HTTP 500 indicates a server-side error. This is not caused by your request but by our systems. Retry the request with exponential backoff. If the error persists, check our status page at status.example.com for known incidents. Contact support with the X-Request-ID header value from the error response for faster debugging. We monitor 500 errors and investigate automatically.",
+      "keywords": ["500", "internal server error", "server error", "retry", "status page", "X-Request-ID"]
+    },
+    {
+      "id": "doc_errors_004",
+      "title": "HTTP 400 Bad Request",
+      "category": "troubleshooting",
+      "content": "HTTP 400 indicates client error in the request. The response body contains detailed validation errors with field names and descriptions. Common causes: missing required fields, invalid data types, malformed JSON, values outside allowed range. Check the 'errors' array in response for specific field issues. Validate request body against API documentation schema before sending.",
+      "keywords": ["400", "bad request", "validation error", "invalid request", "required field", "malformed JSON"]
+    },
+    {
+      "id": "doc_errors_005",
+      "title": "Connection Refused Error",
+      "category": "troubleshooting",
+      "content": "ECONNREFUSED or ERR_CONNECTION_REFUSED indicates the connection was actively rejected. Causes: service is down, wrong port, firewall blocking, or incorrect URL. Resolution: Verify the API URL and port are correct. Check your firewall and network settings. Check status.example.com for service availability. For local development, ensure the service is running. Try from a different network to isolate the issue.",
+      "keywords": ["ECONNREFUSED", "connection refused", "network error", "firewall", "service down"]
+    },
+    {
+      "id": "doc_errors_006",
+      "title": "SSL Certificate Errors",
+      "category": "troubleshooting",
+      "content": "SSL/TLS certificate errors occur when the secure connection cannot be established. Common causes: expired certificate, self-signed certificate, hostname mismatch, outdated CA certificates. Resolution: Update your system's CA certificate bundle. Verify system clock is accurate. For development with self-signed certs, configure your client to trust the cert (never disable verification in production). Check intermediate certificates are properly chained.",
+      "keywords": ["SSL error", "certificate error", "TLS", "CA certificates", "self-signed", "HTTPS"]
+    },
+    {
+      "id": "doc_errors_007",
+      "title": "Invalid Token Error",
+      "category": "troubleshooting",
+      "content": "ERR_INVALID_TOKEN occurs when the authentication token is malformed, expired, or has been revoked. Tokens expire after their TTL (typically 1 hour for access tokens). Resolution: Generate a new token. For refresh tokens, ensure they haven't been rotated. Check the token wasn't modified during copy/paste (whitespace, truncation). Verify you're using the correct token type for the endpoint.",
+      "keywords": ["invalid token", "token expired", "token error", "ERR_INVALID_TOKEN", "token revoked"]
+    },
+    {
+      "id": "doc_errors_008",
+      "title": "CORS Errors",
+      "category": "troubleshooting",
+      "content": "CORS (Cross-Origin Resource Sharing) errors occur when browser security blocks cross-origin requests. Error appears in browser console. Resolution: Add your domain to allowed origins in API Settings > CORS. For development, add localhost:port. Ensure the API handles OPTIONS preflight requests. Check that required CORS headers are returned: Access-Control-Allow-Origin, Access-Control-Allow-Methods. Server-to-server calls don't have CORS restrictions.",
+      "keywords": ["CORS", "cross-origin", "Access-Control-Allow-Origin", "preflight", "OPTIONS", "browser"]
+    },
+    {
+      "id": "doc_errors_009",
+      "title": "Timeout Errors",
+      "category": "troubleshooting",
+      "content": "Timeout errors occur when a request takes too long. Causes: network latency, server overload, slow database queries, large response payloads. Resolution: Increase client timeout for large operations. Optimize your query with filters and pagination. Use async endpoints for long-running operations. Check if specific requests consistently timeout - may indicate a query optimization opportunity. Network issues can also cause timeouts.",
+      "keywords": ["timeout", "ETIMEDOUT", "request timeout", "slow response", "network latency"]
+    },
+    {
+      "id": "doc_errors_010",
+      "title": "HTTP 403 Forbidden",
+      "category": "troubleshooting",
+      "content": "HTTP 403 Forbidden means authentication succeeded but you lack permission for the requested action. Your API key is valid but doesn't have the required scope. Resolution: Check required scopes in API documentation. View your key's scopes in Settings > API Keys. Request additional permissions from your admin. Some actions require higher plan levels. IP allowlist restrictions can also cause 403.",
+      "keywords": ["403", "forbidden", "permission denied", "insufficient scope", "authorization", "access denied"]
+    },
+    {
+      "id": "doc_errors_011",
+      "title": "ETIMEDOUT Error",
+      "category": "troubleshooting",
+      "content": "ETIMEDOUT indicates the connection attempt timed out before establishing a connection. Different from request timeout which occurs after connection. Causes: DNS resolution issues, network routing problems, firewall dropping packets, server not accepting connections. Resolution: Verify DNS resolves correctly. Check network connectivity. Increase connection timeout. Try different network path.",
+      "keywords": ["ETIMEDOUT", "connection timeout", "DNS", "network", "connection failed"]
+    },
+    {
+      "id": "doc_errors_012",
+      "title": "JSON Parse Errors",
+      "category": "troubleshooting",
+      "content": "JSON parse errors occur when request or response body isn't valid JSON. Common issues: trailing commas, unescaped quotes, single quotes instead of double, missing commas, incorrect encoding. Resolution: Validate JSON using a JSON validator tool. Ensure Content-Type is application/json. Check for encoding issues - use UTF-8. Look for invisible characters copied from documents. Most languages have JSON libraries that handle escaping.",
+      "keywords": ["JSON error", "parse error", "invalid JSON", "syntax error", "trailing comma"]
+    },
+    {
+      "id": "doc_errors_013",
+      "title": "HTTP 404 Not Found",
+      "category": "troubleshooting",
+      "content": "HTTP 404 indicates the requested resource doesn't exist. Causes: wrong URL path, incorrect resource ID, resource was deleted, wrong API version. Resolution: Verify the endpoint URL matches documentation. Check resource ID is correct and hasn't been deleted. Ensure API version in path matches your integration. List resources first to confirm IDs. Note that deleted resources return 404, not an error.",
+      "keywords": ["404", "not found", "resource not found", "wrong URL", "deleted resource"]
+    },
+    {
+      "id": "doc_errors_014",
+      "title": "Memory Limit Exceeded",
+      "category": "troubleshooting",
+      "content": "Memory limit exceeded errors occur when operations consume too much memory. Common in large result sets, file processing, or complex aggregations. Resolution: Reduce batch size for bulk operations. Use pagination instead of fetching all results. Stream large file downloads instead of loading entirely. Increase memory allocation if possible. Break large operations into smaller chunks.",
+      "keywords": ["memory limit", "out of memory", "OOM", "memory exceeded", "batch size", "streaming"]
+    },
+    {
+      "id": "doc_errors_015",
+      "title": "Quota Exceeded Error",
+      "category": "troubleshooting",
+      "content": "QUOTA_EXCEEDED indicates you've reached your monthly usage limit. Different from rate limiting which is per-minute. Resolution: Check usage in Dashboard > Billing > Usage. Quota resets on billing date. Upgrade plan for higher quota. Enable overage billing to avoid hard cutoff. Archive or delete unused data to reduce storage quota. Contact sales for temporary quota increase.",
+      "keywords": ["quota exceeded", "monthly limit", "usage limit", "billing quota", "overage"]
+    },
+    {
+      "id": "doc_install_001",
+      "title": "SDK Installation",
+      "category": "howto",
+      "content": "Install the SDK using your package manager. Python: pip install our-sdk (requires Python 3.8+). Node.js: npm install our-sdk (requires Node 16+). Go: go get github.com/company/sdk. Java: add maven dependency. Ruby: gem install our-sdk. After installation, initialize with your API key: client = Client(api_key='YOUR_KEY'). Check version compatibility with our changelog.",
+      "keywords": ["install SDK", "pip install", "npm install", "setup", "package manager"]
+    },
+    {
+      "id": "doc_project_001",
+      "title": "Creating a New Project",
+      "category": "howto",
+      "content": "Create a new project from the dashboard: Go to Dashboard > Projects > Create New. Enter a unique project name (letters, numbers, hyphens). Add optional description for team reference. Select region for data storage. Click Create. Copy the generated project ID - you'll need it for API calls. Projects isolate data and have separate API keys and settings.",
+      "keywords": ["create project", "new project", "project ID", "dashboard", "setup"]
+    },
+    {
+      "id": "doc_upload_001",
+      "title": "File Upload Guide",
+      "category": "howto",
+      "content": "Upload files using multipart/form-data POST to /files endpoint. Include the file in the 'file' form field. Optional metadata in 'metadata' field as JSON string. Maximum file size is 50MB. Supported formats: PDF, DOCX, TXT, CSV, JSON, images. Response returns file_id for reference. For files over 50MB, request a presigned URL for direct upload to storage.",
+      "keywords": ["upload file", "multipart", "file upload", "presigned URL", "file_id"]
+    },
+    {
+      "id": "doc_keys_001",
+      "title": "Generating API Keys",
+      "category": "howto",
+      "content": "Generate API keys from Dashboard > Settings > API Keys > Generate New. Enter a descriptive name for the key. Select permission scopes: read, write, admin, billing. Choose expiration: never, 30 days, 90 days, 1 year. Click Generate. Important: Copy the key immediately - it's only shown once and cannot be retrieved later. Store securely. Generate separate keys for different applications.",
+      "keywords": ["generate API key", "create key", "API credentials", "scopes", "key management"]
+    },
+    {
+      "id": "doc_export_001",
+      "title": "Data Export Guide",
+      "category": "howto",
+      "content": "Export data from Dashboard > Data > Export. Select export format: CSV for spreadsheets, JSON for programmatic use. Choose date range and specific fields to include. Click Export. Small exports download immediately. Large exports (>100MB) are processed in background - download link sent via email when ready. Use API endpoint for automated exports: POST /exports with format and filters.",
+      "keywords": ["export data", "download data", "CSV export", "JSON export", "bulk download"]
+    },
+    {
+      "id": "doc_retry_001",
+      "title": "Implementing Retry Logic",
+      "category": "howto",
+      "content": "Implement retry logic with exponential backoff for resilient API integration. Start with 1 second delay, double after each failure up to 32 seconds maximum. Retry on transient errors: 429 (rate limited), 500 (server error), 502, 503, 504 (gateway errors). Do not retry 400 (bad request) or 401 (auth error). Maximum 5 retry attempts before failing. Include jitter to avoid thundering herd.",
+      "keywords": ["retry logic", "exponential backoff", "resilience", "retry policy", "jitter"]
+    },
+    {
+      "id": "doc_delete_001",
+      "title": "Deleting Resources",
+      "category": "howto",
+      "content": "Delete a resource by sending DELETE request to /resources/{id}. Successful deletion returns 204 No Content status with empty body. Deletion is permanent and cannot be undone through the API. Deleted resources return 404 on subsequent requests. Some resources support soft delete with restore capability - check endpoint documentation. Cascade deletes remove related child resources automatically.",
+      "keywords": ["delete", "remove", "DELETE request", "204", "permanent deletion"]
+    },
+    {
+      "id": "doc_search_001",
+      "title": "Search with Filters",
+      "category": "howto",
+      "content": "Advanced search using POST /search with JSON body. Structure: {\"query\": \"search term\", \"filters\": {\"status\": \"active\"}}. Supports full-text search across indexed fields. Filter operators: eq, ne, gt, lt, in, contains. Combine conditions with AND/OR: {\"and\": [{\"status\": \"active\"}, {\"type\": \"premium\"}]}. Nested conditions supported. Returns relevance-scored results with highlights.",
+      "keywords": ["search", "full-text search", "filters", "query", "relevance", "nested conditions"]
+    },
+    {
+      "id": "doc_profile_001",
+      "title": "Updating User Profile",
+      "category": "howto",
+      "content": "Update your user profile with PATCH /users/me endpoint. Send JSON body with only the fields you want to change: {\"name\": \"New Name\", \"timezone\": \"America/New_York\"}. Omitted fields remain unchanged. Response returns the complete updated user object. Some fields like email require verification. Profile changes take effect immediately across all sessions.",
+      "keywords": ["update profile", "PATCH", "user settings", "profile fields", "timezone"]
+    },
+    {
+      "id": "doc_team_001",
+      "title": "Team Management",
+      "category": "howto",
+      "content": "Invite team members from Settings > Team > Invite. Enter email address and select role: Viewer (read-only), Editor (read-write), Admin (full access). Click Send Invitation. User receives email with invitation link valid for 7 days. Pending invitations shown in list. Revoke invitation before acceptance. Manage roles after joining. Remove team members from same page.",
+      "keywords": ["invite team", "team members", "user roles", "invitation", "permissions"]
+    },
+    {
+      "id": "doc_2fa_001",
+      "title": "Two-Factor Authentication Setup",
+      "category": "howto",
+      "content": "Enable two-factor authentication from Profile > Security > Enable 2FA. Scan the QR code with an authenticator app (Google Authenticator, Authy, 1Password). Enter the 6-digit verification code to confirm setup. Save the backup recovery codes securely - needed if you lose your device. 2FA required on each login. Admins can enforce 2FA for all organization members.",
+      "keywords": ["two-factor", "2FA", "MFA", "authenticator", "security", "QR code"]
+    },
+    {
+      "id": "doc_billing_001",
+      "title": "Invoice Download",
+      "category": "howto",
+      "content": "Download invoices from Billing > Invoices. List shows all invoices with date, amount, and status. Click PDF icon to download specific invoice. Invoices generated monthly on billing date. For API access: GET /billing/invoices returns list, GET /billing/invoices/{id}/pdf returns PDF binary. Filter by date range: ?start_date=2024-01-01&end_date=2024-12-31.",
+      "keywords": ["invoice", "billing", "download invoice", "PDF", "billing history"]
+    },
+    {
+      "id": "doc_subscription_001",
+      "title": "Changing Subscription Plan",
+      "category": "howto",
+      "content": "Change your plan from Billing > Subscription > Change Plan. Select new plan from available options. Upgrades take effect immediately - prorated charges applied. Downgrades take effect at next billing cycle - current plan continues until then. Enterprise plans require contacting sales. Free tier available after cancellation. Review feature differences before changing.",
+      "keywords": ["change plan", "upgrade", "downgrade", "subscription", "pricing"]
+    },
+    {
+      "id": "doc_revoke_001",
+      "title": "Revoking API Access",
+      "category": "howto",
+      "content": "Revoke API keys from Settings > API Keys. Find the key to revoke and click Revoke button. Confirmation required. Revocation takes effect immediately - all requests using that key will fail with 401. Active sessions and connections using the key are terminated. Generate a new key before revoking if you need continuous access. Revoked keys cannot be restored.",
+      "keywords": ["revoke key", "delete API key", "disable access", "key management"]
+    },
+    {
+      "id": "doc_clone_001",
+      "title": "Cloning Projects",
+      "category": "howto",
+      "content": "Clone a project from Projects > Select Project > Actions > Clone. Choose what to include: settings only, settings with sample data, or complete data copy. Enter new project name. Data-inclusive clones may take time for large projects. New project created with '_copy' suffix by default. API keys are not cloned for security - generate new keys for the cloned project.",
+      "keywords": ["clone project", "copy project", "duplicate", "project copy"]
+    },
+    {
+      "id": "doc_reports_001",
+      "title": "Automated Report Scheduling",
+      "category": "howto",
+      "content": "Schedule automated reports from Reports > Create Schedule. Select report type (usage, activity, custom). Choose frequency: daily (sent at midnight UTC), weekly (Monday), or monthly (1st). Add recipient email addresses. Configure filters for report scope. Reports sent as email attachments in PDF or CSV. Edit or delete schedules anytime. View delivery history in Reports > Scheduled.",
+      "keywords": ["scheduled reports", "automated reports", "report frequency", "email reports"]
+    },
+    {
+      "id": "doc_notifications_001",
+      "title": "Email Notification Settings",
+      "category": "howto",
+      "content": "Configure email notifications in Settings > Notifications. Categories include: security alerts, billing, usage warnings, system status, product updates. Toggle each category on/off. Set digest frequency: real-time (immediate), daily digest, weekly digest. Configure per-project notification overrides. Unsubscribe links in email footers. Critical security notifications cannot be disabled.",
+      "keywords": ["notifications", "email alerts", "notification settings", "digest", "alerts"]
+    },
+    {
+      "id": "doc_restore_001",
+      "title": "Restoring Deleted Items",
+      "category": "howto",
+      "content": "Restore deleted items from Trash. Items remain in trash for 30 days (Free), 90 days (Pro), or 180 days (Enterprise). Navigate to Trash, select items to restore, click Restore. Items return to original location with original metadata. Cannot restore items after retention period - permanently deleted. API: POST /trash/{id}/restore. Trash counts against storage quota.",
+      "keywords": ["restore", "trash", "undelete", "recover deleted", "retention period"]
+    },
+    {
+      "id": "doc_oauth_001",
+      "title": "OAuth 2.0 Overview",
+      "category": "conceptual",
+      "content": "OAuth 2.0 is an authorization framework enabling third-party applications to access user data without exposing credentials. User grants permission through consent screen. App receives authorization code, exchanges for access token. Access tokens are short-lived (1 hour). Refresh tokens obtain new access tokens. Scopes limit what data the app can access. We support authorization code flow with PKCE for security.",
+      "keywords": ["OAuth", "OAuth 2.0", "authorization", "access token", "refresh token", "scopes"]
+    },
+    {
+      "id": "doc_oauth_flow_001",
+      "title": "OAuth Flow Implementation",
+      "category": "security",
+      "content": "Implement OAuth flow: 1) Redirect user to /oauth/authorize with client_id, redirect_uri, scope, state, code_challenge (PKCE). 2) User authenticates and grants permission. 3) Callback receives authorization code. 4) POST to /oauth/token with code and code_verifier to get tokens. 5) Store refresh token securely (encrypted, not in browser). 6) Use access token in Authorization header.",
+      "keywords": ["OAuth flow", "authorization code", "PKCE", "token exchange", "OAuth implementation"]
+    },
+    {
+      "id": "doc_rest_001",
+      "title": "REST API Concepts",
+      "category": "conceptual",
+      "content": "REST (Representational State Transfer) is an architectural style for web APIs. Key principles: stateless requests (no server-side session), resource-based URLs (/users/123), standard HTTP methods (GET, POST, PUT, DELETE), consistent response formats. Benefits include scalability, cacheability, and simplicity. Our API follows REST conventions with JSON responses and meaningful HTTP status codes.",
+      "keywords": ["REST", "RESTful", "API architecture", "stateless", "HTTP methods"]
+    },
+    {
+      "id": "doc_idempotency_001",
+      "title": "Idempotency in APIs",
+      "category": "conceptual",
+      "content": "Idempotency means multiple identical requests produce the same result as a single request. GET, PUT, DELETE are naturally idempotent. POST creates new resources, not idempotent by default. Use Idempotency-Key header with unique value for POST requests. Server stores result and returns same response for duplicate keys. Keys valid for 24 hours. Essential for safe retries on network failures.",
+      "keywords": ["idempotency", "Idempotency-Key", "safe retry", "duplicate prevention", "idempotent"]
+    },
+    {
+      "id": "doc_async_001",
+      "title": "Synchronous vs Asynchronous APIs",
+      "category": "conceptual",
+      "content": "Synchronous APIs return results immediately in the response. Best for fast operations (<30 seconds). Asynchronous APIs return a job ID immediately, you poll for completion or receive a webhook. Use async for long operations: large exports, complex processing, batch operations. Check job status: GET /jobs/{id}. Job results available for 24 hours. Webhooks provide real-time completion notification.",
+      "keywords": ["sync", "async", "asynchronous", "job ID", "polling", "long-running"]
+    },
+    {
+      "id": "doc_graphql_001",
+      "title": "GraphQL Introduction",
+      "category": "conceptual",
+      "content": "GraphQL is a query language letting clients request exactly the data they need. Single endpoint receives all queries. Client specifies fields in query, server returns matching shape. Reduces over-fetching (getting unused fields) and under-fetching (needing multiple requests). Supports mutations for writes, subscriptions for real-time. Schema defines available types and operations. Introspection enables tooling.",
+      "keywords": ["GraphQL", "query language", "over-fetching", "mutations", "schema"]
+    },
+    {
+      "id": "doc_jwt_001",
+      "title": "JWT Tokens Explained",
+      "category": "conceptual",
+      "content": "JSON Web Token (JWT) is a self-contained token format. Three parts: header (algorithm), payload (claims like user ID, expiration), signature (verification). Base64-encoded, separated by dots. Server validates signature without database lookup. Claims include: iss (issuer), sub (subject), exp (expiration), iat (issued at). Tokens cannot be revoked individually - use short expiration with refresh tokens.",
+      "keywords": ["JWT", "JSON Web Token", "claims", "token", "signature", "expiration"]
+    },
+    {
+      "id": "doc_ratelimit_001",
+      "title": "Understanding Rate Limiting",
+      "category": "conceptual",
+      "content": "Rate limiting controls request frequency to ensure fair usage and prevent abuse. Limits expressed as requests per time window (100/minute). Headers show limit status: X-RateLimit-Limit (max), X-RateLimit-Remaining (left), X-RateLimit-Reset (reset time). When exceeded, returns 429 with Retry-After header. Implement client-side rate limiting to stay within limits. Different endpoints may have different limits.",
+      "keywords": ["rate limiting", "throttling", "X-RateLimit", "429", "fair usage"]
+    },
+    {
+      "id": "doc_hateoas_001",
+      "title": "HATEOAS Principle",
+      "category": "conceptual",
+      "content": "HATEOAS (Hypermedia As The Engine Of Application State) is a REST principle where responses include links to related resources and available actions. Example: user response includes links to user's orders, profile update URL. Clients navigate API through provided links rather than constructing URLs. Enables API evolution without breaking clients. Our API includes _links section with related resources.",
+      "keywords": ["HATEOAS", "hypermedia", "links", "REST principle", "discoverability"]
+    },
+    {
+      "id": "doc_sdk_api_001",
+      "title": "SDK vs API Difference",
+      "category": "conceptual",
+      "content": "API (Application Programming Interface) defines how systems communicate - the endpoints, request formats, and responses. SDK (Software Development Kit) is a pre-built library that wraps API calls with language-specific helpers. SDK benefits: type safety, automatic retries, error handling, request signing, response parsing. Use SDK for faster integration. Use API directly for maximum control or unsupported languages.",
+      "keywords": ["SDK", "API", "library", "wrapper", "integration"]
+    },
+    {
+      "id": "doc_serverless_001",
+      "title": "Serverless Architecture",
+      "category": "conceptual",
+      "content": "Serverless computing runs code without managing servers. Provider handles infrastructure, scaling, and maintenance. You pay per invocation, not for idle time. Examples: AWS Lambda, Azure Functions, Google Cloud Functions. Benefits: auto-scaling, no ops, cost-effective for variable loads. Considerations: cold start latency, execution time limits, stateless by design. Works well with webhooks and event-driven architectures.",
+      "keywords": ["serverless", "Lambda", "FaaS", "cloud functions", "auto-scaling"]
+    },
+    {
+      "id": "doc_gateway_001",
+      "title": "API Gateway Overview",
+      "category": "conceptual",
+      "content": "API Gateway is the entry point for all API requests. Functions: authentication (verify API keys), rate limiting (enforce quotas), routing (direct to services), load balancing (distribute traffic), caching (store responses), transformation (modify requests/responses). Provides single access point regardless of backend architecture. Enables monitoring, logging, and analytics across all API traffic.",
+      "keywords": ["API gateway", "load balancing", "routing", "single entry point", "caching"]
+    },
+    {
+      "id": "doc_pricing_001",
+      "title": "Pricing Plans",
+      "category": "faq",
+      "content": "Pricing tiers: Free - $0/month, 1000 API requests, community support. Starter - $29/month, 50,000 requests, email support, basic analytics. Pro - $99/month, 500,000 requests, priority support, advanced analytics, webhooks, SSO. Enterprise - custom pricing, unlimited requests, dedicated support, SLA, custom features. Annual billing saves 20%. Volume discounts available.",
+      "keywords": ["pricing", "plans", "cost", "free tier", "enterprise", "subscription"]
+    },
+    {
+      "id": "doc_trial_001",
+      "title": "Free Trial Information",
+      "category": "faq",
+      "content": "14-day free trial of Pro plan features. No credit card required to start. Full access to all Pro features during trial. Trial converts automatically to Free plan after 14 days if not upgraded. Data preserved on downgrade. One trial per account. Contact sales for extended trials for enterprise evaluation. Trial cannot be paused or extended.",
+      "keywords": ["free trial", "trial period", "14 days", "no credit card", "evaluation"]
+    },
+    {
+      "id": "doc_payment_001",
+      "title": "Payment Methods",
+      "category": "faq",
+      "content": "Accepted payment methods: Credit cards (Visa, Mastercard, American Express, Discover), PayPal for monthly payments, bank wire transfer for Enterprise annual plans. Invoicing available for annual commitments over $1000. Automatic billing on subscription date. Update payment method in Billing > Payment Methods. Failed payments retry 3 times before suspension.",
+      "keywords": ["payment", "credit card", "PayPal", "wire transfer", "billing"]
+    },
+    {
+      "id": "doc_cancel_001",
+      "title": "Subscription Cancellation",
+      "category": "faq",
+      "content": "Cancel subscription from Billing > Subscription > Cancel Subscription. Confirm cancellation reason (optional feedback). Access continues until end of current billing period. Data retained for 30 days after cancellation for reactivation. After 30 days, data permanently deleted. Annual plan cancellation provides prorated refund. No cancellation fees. Reactivate anytime.",
+      "keywords": ["cancel", "cancellation", "unsubscribe", "end subscription", "data retention"]
+    },
+    {
+      "id": "doc_security_overview_001",
+      "title": "Security Overview",
+      "category": "faq",
+      "content": "Security is our top priority. SOC 2 Type II certified. Data encrypted at rest using AES-256. Data encrypted in transit using TLS 1.3. Regular third-party security audits. Bug bounty program for responsible disclosure. GDPR and CCPA compliant. Optional customer-managed encryption keys (BYOK) for Enterprise. Security whitepaper available on request.",
+      "keywords": ["security", "SOC 2", "encryption", "compliance", "audit"]
+    },
+    {
+      "id": "doc_datacenter_001",
+      "title": "Data Center Locations",
+      "category": "faq",
+      "content": "Primary data center: AWS us-east-1 (Virginia, USA). European data residency option: AWS eu-west-1 (Ireland). Asia-Pacific option: AWS ap-southeast-1 (Singapore). Select region during account setup. Data never leaves selected region. Enterprise can choose specific regions. All regions meet same security and compliance standards. Regional pricing may vary.",
+      "keywords": ["data center", "region", "data residency", "EU", "GDPR", "location"]
+    },
+    {
+      "id": "doc_support_001",
+      "title": "Support Options",
+      "category": "faq",
+      "content": "Contact support at support@example.com. Free tier: community forum only. Starter: email support, 48-hour response. Pro: priority email support, 24-hour response, chat during business hours. Enterprise: dedicated support engineer, private Slack channel, 4-hour response for critical issues, 24/7 emergency phone support. All plans access documentation and API status page.",
+      "keywords": ["support", "contact", "help", "response time", "customer service"]
+    },
+    {
+      "id": "doc_status_001",
+      "title": "API Status Page",
+      "category": "faq",
+      "content": "Check real-time API status at status.example.com. Shows current status for all services: API, Dashboard, Webhooks, Authentication. Historical uptime data and incident timeline. Subscribe for notifications: email, SMS, Slack, or RSS. Scheduled maintenance announced 48 hours in advance. Post-incident reports published for significant outages. Status API available for programmatic monitoring.",
+      "keywords": ["status page", "uptime", "incident", "maintenance", "outage"]
+    },
+    {
+      "id": "doc_sdk_001",
+      "title": "Available SDKs",
+      "category": "faq",
+      "content": "Official SDKs: Python (pip), JavaScript/Node.js (npm), Go (go get), Java (Maven), Ruby (gem), PHP (composer), .NET (NuGet). Community-maintained SDKs: Rust, Swift, Kotlin. SDKs include: typed interfaces, automatic retries, request signing, async support. Check GitHub repositories for examples. SDKs follow semantic versioning. Report issues via GitHub.",
+      "keywords": ["SDK", "language support", "Python", "JavaScript", "Go", "Java"]
+    },
+    {
+      "id": "doc_license_001",
+      "title": "Commercial Use License",
+      "category": "faq",
+      "content": "All paid plans permit commercial use. Build and sell products using our API. Free tier restricted to non-commercial and evaluation use. No per-seat licensing - pricing based on API usage. Reselling API access directly prohibited - contact for partner program. White-label solutions available for Enterprise. Review Terms of Service for complete licensing details.",
+      "keywords": ["commercial use", "license", "terms", "reselling", "production use"]
+    },
+    {
+      "id": "doc_onprem_001",
+      "title": "On-Premise Deployment",
+      "category": "faq",
+      "content": "On-premise deployment available for Enterprise plan. Deploy in your own data center or private cloud. Docker containers or Kubernetes deployment. Minimum 3-year contract required. Includes installation support and training. Updates delivered as container images. Requires dedicated hardware: 8+ cores, 32GB+ RAM, 500GB+ storage. Air-gapped installation available.",
+      "keywords": ["on-premise", "self-hosted", "private cloud", "Docker", "Kubernetes"]
+    },
+    {
+      "id": "doc_overage_001",
+      "title": "Plan Limit Overages",
+      "category": "faq",
+      "content": "When approaching limits, receive warning email at 80% usage. At 100%, two options depending on settings: Hard limit - additional requests rejected with 429 error. Soft limit with overage - additional requests accepted at overage rates ($0.001 per request). Configure preference in Billing > Usage Settings. Auto-upgrade available to move to higher plan automatically.",
+      "keywords": ["overage", "limit exceeded", "usage limit", "auto-upgrade", "quota"]
+    },
+    {
+      "id": "doc_retention_001",
+      "title": "Data Retention Policy",
+      "category": "faq",
+      "content": "Data retention varies by type: Active data retained indefinitely while subscription active. Deleted items in Trash: 30 days (Free), 90 days (Pro), 180 days (Enterprise). Audit logs: 90 days (Pro), 1 year (Enterprise). Cancelled accounts: 30 days for reactivation. After retention period, data permanently deleted and unrecoverable. Export your data before cancellation.",
+      "keywords": ["data retention", "deletion", "retention period", "data lifecycle"]
+    },
+    {
+      "id": "doc_refund_001",
+      "title": "Refund Policy",
+      "category": "faq",
+      "content": "Full refund within 30 days of annual plan purchase. Monthly plans receive prorated credit for unused time. Usage-based charges (overages, add-ons) non-refundable. Refund processed to original payment method within 5-10 business days. Enterprise contracts have custom refund terms. Contact billing@example.com for refund requests.",
+      "keywords": ["refund", "money back", "cancellation refund", "prorated"]
+    },
+    {
+      "id": "doc_env_001",
+      "title": "Environment Variables Configuration",
+      "category": "configuration",
+      "content": "Configure the SDK using environment variables. Create .env file in project root. Required: API_KEY (your API key), API_SECRET (if using signed requests). Optional: API_BASE_URL (for sandbox), LOG_LEVEL (debug/info/warn/error), TIMEOUT_MS. SDK auto-loads from .env file. Never commit .env to version control. Use different .env files per environment.",
+      "keywords": ["environment variables", ".env", "configuration", "API_KEY", "settings"]
+    },
+    {
+      "id": "doc_logging_001",
+      "title": "Logging Configuration",
+      "category": "configuration",
+      "content": "Configure logging with LOG_LEVEL environment variable: debug (verbose), info (standard), warn (issues only), error (failures only). Set LOG_FORMAT: json (structured) or text (readable). SDK logs to stdout by default. Configure custom log handler in SDK initialization for integration with your logging system (Winston, Bunyan, Log4j). Log rotation recommended for production.",
+      "keywords": ["logging", "LOG_LEVEL", "debug", "log format", "structured logging"]
+    },
+    {
+      "id": "doc_proxy_001",
+      "title": "Proxy Configuration",
+      "category": "configuration",
+      "content": "Configure proxy for API requests using environment variables: HTTP_PROXY and HTTPS_PROXY with proxy URL (http://proxy.example.com:8080). Or configure in SDK: client = Client(proxy='http://proxy:8080'). Supports authenticated proxies: http://user:pass@proxy:8080. SOCKS proxy supported with socks5://. NO_PROXY for bypassing proxy for specific hosts.",
+      "keywords": ["proxy", "HTTP_PROXY", "corporate proxy", "network configuration"]
+    },
+    {
+      "id": "doc_domain_001",
+      "title": "Custom Domain Setup",
+      "category": "configuration",
+      "content": "Configure custom domain for white-label API access. Settings > Custom Domain > Add Domain. Enter your domain (api.yourdomain.com). Add CNAME record pointing to our endpoint (provided). Verify domain ownership via DNS or file. Choose: use our SSL certificate (automatic) or upload your own. DNS propagation may take up to 48 hours. Enterprise feature.",
+      "keywords": ["custom domain", "white-label", "CNAME", "SSL certificate", "DNS"]
+    },
+    {
+      "id": "doc_allowlist_001",
+      "title": "IP Allowlist Configuration",
+      "category": "configuration",
+      "content": "Restrict API access to specific IP addresses. Settings > Security > IP Allowlist > Enable. Add individual IPs or CIDR ranges (10.0.0.0/8). All unlisted IPs receive 403 Forbidden. Add multiple ranges for different offices/environments. Consider VPN exit IPs. Warning: misconfiguration can lock out your access. Keep a backup admin key with allowlist disabled.",
+      "keywords": ["IP allowlist", "IP whitelist", "CIDR", "access control", "security"]
+    },
+    {
+      "id": "doc_cors_001",
+      "title": "CORS Configuration",
+      "category": "configuration",
+      "content": "Configure CORS (Cross-Origin Resource Sharing) in Settings > API > CORS. Add allowed origins: exact domain (https://app.example.com) or wildcard (https://*.example.com). Add localhost:port for development. Configure allowed methods (GET, POST, PUT, DELETE). Set allowed headers (Authorization, Content-Type). Max age controls preflight cache duration. Changes take effect within 5 minutes.",
+      "keywords": ["CORS", "cross-origin", "allowed origins", "preflight", "browser security"]
+    },
+    {
+      "id": "doc_debug_001",
+      "title": "Debug Mode",
+      "category": "configuration",
+      "content": "Enable debug mode for troubleshooting. Set DEBUG=true environment variable or client.debug = true. Debug mode logs: full request URLs, headers (API key masked), request bodies, response status and bodies, timing information. Warning: debug logs may contain sensitive data - never enable in production. Use for development and troubleshooting only.",
+      "keywords": ["debug", "debug mode", "troubleshooting", "verbose logging"]
+    },
+    {
+      "id": "doc_pool_001",
+      "title": "Connection Pooling",
+      "category": "configuration",
+      "content": "Configure connection pooling for high-throughput applications. Settings: MAX_CONNECTIONS (default 10, increase for high volume), CONNECTION_TIMEOUT (time to establish connection), KEEP_ALIVE_TIMEOUT (idle connection lifetime). Higher pool sizes improve throughput but consume more memory. Monitor connection metrics. SDK handles pooling automatically - configure via environment or initialization.",
+      "keywords": ["connection pool", "MAX_CONNECTIONS", "keep-alive", "high throughput"]
+    },
+    {
+      "id": "doc_environments_001",
+      "title": "Multiple Environments Setup",
+      "category": "configuration",
+      "content": "Set up separate environments for dev, staging, production. Create separate projects for isolation. Use different API keys per environment. Configure via environment-specific files: .env.development, .env.staging, .env.production. SDK loads based on NODE_ENV or equivalent. Never use production keys in development. Sandbox environment available for testing without affecting production data.",
+      "keywords": ["environments", "development", "staging", "production", "env files"]
+    },
+    {
+      "id": "doc_signing_001",
+      "title": "Request Signing Configuration",
+      "category": "configuration",
+      "content": "Enable request signing for additional security. Settings > Security > Request Signing. SDK auto-signs when enabled. For manual signing: create signature string from HTTP method, path, timestamp, request body hash. Compute HMAC-SHA256 using API secret. Add X-Signature and X-Timestamp headers. Requests rejected if signature invalid or timestamp >5 minutes old.",
+      "keywords": ["request signing", "HMAC", "signature", "security", "verification"]
+    },
+    {
+      "id": "doc_lang_001",
+      "title": "Language and Localization",
+      "category": "configuration",
+      "content": "Set default language in Settings > Localization > Default Language. Supported: English, Spanish, French, German, Japanese, Chinese, Portuguese. Affects error messages, system notifications, and dashboard UI. Override per-request: Accept-Language header. API responses include localized strings where available. Date and number formats follow language conventions.",
+      "keywords": ["language", "localization", "i18n", "Accept-Language", "translation"]
+    },
+    {
+      "id": "doc_retry_config_001",
+      "title": "Retry Configuration",
+      "category": "configuration",
+      "content": "Configure automatic retry behavior. MAX_RETRIES (default 3): total retry attempts. RETRY_DELAY (default 1000ms): initial delay before first retry. RETRY_MAX_DELAY (default 30000ms): maximum delay cap. RETRY_MULTIPLIER (default 2): exponential backoff factor. Configure retryable status codes: default is 429, 500, 502, 503, 504. SDK handles retry logic automatically.",
+      "keywords": ["retry config", "MAX_RETRIES", "backoff", "retry delay"]
+    },
+    {
+      "id": "doc_compression_001",
+      "title": "Request Compression",
+      "category": "configuration",
+      "content": "Enable compression to reduce bandwidth. Response compression: set Accept-Encoding: gzip header - server returns compressed response. Request compression: compress body and set Content-Encoding: gzip header. Compression reduces transfer size by 70-90% for text data. SDK handles decompression automatically. Worth enabling for large payloads. Minimal CPU overhead.",
+      "keywords": ["compression", "gzip", "Accept-Encoding", "Content-Encoding", "bandwidth"]
+    },
+    {
+      "id": "doc_key_rotation_001",
+      "title": "API Key Rotation",
+      "category": "security",
+      "content": "Rotate API keys regularly for security. Recommended: every 90 days or after team member departure. Process: 1) Generate new key with same scopes, 2) Update applications with new key, 3) Verify applications work with new key, 4) Monitor for errors using old key, 5) Revoke old key after confirmation period. Overlap period prevents service disruption. Automate rotation for production.",
+      "keywords": ["key rotation", "rotate API key", "security", "credential management"]
+    },
+    {
+      "id": "doc_headers_001",
+      "title": "Security Headers",
+      "category": "security",
+      "content": "Recommended security headers for API integration: X-Content-Type-Options: nosniff (prevent MIME sniffing), X-Frame-Options: DENY (prevent clickjacking), Content-Security-Policy (control resource loading), Strict-Transport-Security: max-age=31536000 (enforce HTTPS). Our API responses include these headers. Implement in your application layer for defense in depth.",
+      "keywords": ["security headers", "X-Content-Type-Options", "CSP", "HSTS", "X-Frame-Options"]
+    },
+    {
+      "id": "doc_key_storage_001",
+      "title": "Secure Key Storage",
+      "category": "security",
+      "content": "Store API keys securely: Never commit to version control (add to .gitignore). Use environment variables for local development. Use secrets manager for production (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault). Encrypt at rest. Limit access to keys based on need. Rotate keys if exposed. Monitor key usage for anomalies. Consider using short-lived tokens when possible.",
+      "keywords": ["key storage", "secrets manager", "vault", "secure storage", "credential"]
+    },
+    {
+      "id": "doc_injection_001",
+      "title": "Preventing Injection Attacks",
+      "category": "security",
+      "content": "Prevent injection attacks in your application: Validate and sanitize all user input before sending to API. Use parameterized queries for any database operations. Encode output to prevent XSS. Our API validates input but implement defense in depth. Check Content-Type matches expected format. Reject unexpected fields in requests. Use allowlist for acceptable input patterns.",
+      "keywords": ["injection", "SQL injection", "XSS", "input validation", "sanitization"]
+    },
+    {
+      "id": "doc_sso_001",
+      "title": "SSO Configuration",
+      "category": "security",
+      "content": "Configure Single Sign-On (SSO) for Enterprise accounts. Settings > SSO > Configure. Supported protocols: SAML 2.0, OpenID Connect (OIDC). For SAML: upload Identity Provider metadata XML or enter manually. Map IdP attributes to user fields (email, name, groups). For OIDC: provide issuer URL, client ID, client secret. Test login before enforcing SSO. Backup admin access available.",
+      "keywords": ["SSO", "SAML", "OIDC", "single sign-on", "identity provider"]
+    },
+    {
+      "id": "doc_audit_001",
+      "title": "Audit Logging",
+      "category": "security",
+      "content": "Access audit logs in Settings > Audit Log. Records all API calls, dashboard actions, and security events. Each entry shows: timestamp, user/API key, action performed, resource affected, IP address, response status. Filter by date, user, action type. Export to CSV or integrate with SIEM (Splunk, Datadog). Retention: 90 days (Pro), 1 year (Enterprise). Immutable logs for compliance.",
+      "keywords": ["audit log", "activity log", "compliance", "SIEM", "security monitoring"]
+    },
+    {
+      "id": "doc_session_001",
+      "title": "Session Management",
+      "category": "security",
+      "content": "Configure session settings in Settings > Security > Sessions. Idle timeout: automatically log out after inactivity (default 30 minutes, range 5-480 minutes). Maximum session duration: force re-authentication after period (default 24 hours). Concurrent sessions: allow or restrict multiple simultaneous sessions. Sensitive action re-authentication: require password for critical changes.",
+      "keywords": ["session timeout", "idle timeout", "session management", "concurrent sessions"]
+    },
+    {
+      "id": "doc_encryption_001",
+      "title": "Encryption Configuration",
+      "category": "security",
+      "content": "Data encryption is enabled by default. At rest: AES-256 encryption for all stored data. In transit: TLS 1.3 required, TLS 1.2 supported. Enterprise option: customer-managed keys (BYOK) - bring your own KMS key for data encryption. Configure in Settings > Security > Encryption. Key rotation handled automatically. Encryption cannot be disabled. Certificates renewed automatically.",
+      "keywords": ["encryption", "AES-256", "TLS", "BYOK", "data protection"]
+    },
+    {
+      "id": "doc_mfa_001",
+      "title": "Multi-Factor Authentication",
+      "category": "security",
+      "content": "Enable MFA from Profile > Security > Multi-Factor Authentication. Supported methods: TOTP apps (Google Authenticator, Authy, 1Password), hardware security keys (WebAuthn/FIDO2). Setup: scan QR code with app, enter verification code. Save backup codes for recovery. Organization admins can enforce MFA for all members. MFA required after password change.",
+      "keywords": ["MFA", "multi-factor", "TOTP", "security key", "WebAuthn"]
+    },
+    {
+      "id": "doc_token_refresh_001",
+      "title": "Token Refresh Process",
+      "category": "security",
+      "content": "Access tokens expire after 1 hour for security. Refresh tokens obtain new access tokens without re-authentication. POST to /oauth/token with grant_type=refresh_token and your refresh_token. Response includes new access_token and optionally new refresh_token. Store refresh tokens securely (encrypted). Refresh tokens rotate on each use. Revoked on password change or explicit logout.",
+      "keywords": ["token refresh", "refresh token", "access token", "OAuth", "token expiration"]
+    },
+    {
+      "id": "doc_scopes_001",
+      "title": "API Key Scopes",
+      "category": "security",
+      "content": "API key scopes control permissions. Available scopes: read (GET operations), write (POST, PUT, PATCH, DELETE), admin (user and settings management), billing (payment and subscription). Use minimum necessary scopes. Scope checked on each request - insufficient scope returns 403. Create multiple keys with different scopes for different services. View key scopes in Settings > API Keys.",
+      "keywords": ["scopes", "permissions", "API key permissions", "access control", "least privilege"]
+    },
+    {
+      "id": "doc_rbac_001",
+      "title": "Role-Based Access Control",
+      "category": "security",
+      "content": "Implement RBAC with roles and permissions. Built-in roles: Viewer (read-only), Editor (read-write), Admin (full access), Owner (billing and deletion). Create custom roles on Enterprise. Assign users to roles. Check permissions programmatically: user.can('resource:action'). Roles inherited in hierarchy. Changes take effect immediately. Audit role assignments in audit log.",
+      "keywords": ["RBAC", "roles", "permissions", "access control", "user roles"]
+    },
+    {
+      "id": "doc_gdpr_001",
+      "title": "GDPR Compliance",
+      "category": "security",
+      "content": "GDPR compliance features: Data export - download all user data via API or dashboard. Data deletion - request honored within 30 days, confirmation provided. Consent management - APIs for recording and managing consent. Data Processing Agreement (DPA) available for download. EU data residency option. Right to portability - export in standard formats. Contact privacy@example.com for requests.",
+      "keywords": ["GDPR", "data privacy", "data export", "deletion request", "compliance"]
+    },
+    {
+      "id": "doc_perf_001",
+      "title": "API Performance Optimization",
+      "category": "performance",
+      "content": "Improve API response times: Use connection pooling to reuse TCP connections. Enable gzip compression to reduce transfer size. Request only needed fields using 'fields' parameter. Implement client-side caching for stable data. Use regional endpoints for lower latency. Batch requests to reduce HTTP overhead. Use cursor pagination for large datasets. Monitor performance metrics in dashboard.",
+      "keywords": ["performance", "optimization", "latency", "response time", "throughput"]
+    },
+    {
+      "id": "doc_batch_perf_001",
+      "title": "Batch Operation Performance",
+      "category": "performance",
+      "content": "Optimize batch operations: Use batch endpoints instead of individual calls - reduces HTTP overhead by 90%. Optimal batch size: 50-100 items balances throughput and error handling. Larger batches for simple operations, smaller for complex. For large datasets (10K+ items), use async batch endpoint. Monitor batch operation status. Implement partial failure handling - some items may succeed while others fail.",
+      "keywords": ["batch performance", "bulk operations", "throughput", "batch size"]
+    },
+    {
+      "id": "doc_caching_001",
+      "title": "Caching Strategies",
+      "category": "performance",
+      "content": "Implement caching for improved performance: Check Cache-Control response headers for cacheability hints. Use ETag headers for conditional requests - 304 Not Modified saves bandwidth. Client-side caching: store responses locally for TTL duration. Server-side caching with Redis or Memcached for shared cache. Cache invalidation: use webhooks for real-time updates. Don't cache user-specific or frequently changing data.",
+      "keywords": ["caching", "Cache-Control", "ETag", "Redis", "cache invalidation"]
+    },
+    {
+      "id": "doc_upload_perf_001",
+      "title": "Large File Upload Performance",
+      "category": "performance",
+      "content": "Optimize large file uploads: For files >100MB, use multipart upload. Request presigned URL from /uploads/presigned. Upload directly to storage, bypassing API server. Confirm completion with POST /uploads/complete. Resumable uploads supported - track uploaded parts. Parallel part uploads for faster throughput. Compression recommended for text files. Monitor upload progress with checksum verification.",
+      "keywords": ["file upload", "multipart", "presigned URL", "resumable upload", "large files"]
+    },
+    {
+      "id": "doc_bandwidth_001",
+      "title": "Bandwidth Optimization",
+      "category": "performance",
+      "content": "Reduce bandwidth usage: Enable gzip compression (Accept-Encoding header). Use 'fields' parameter to select only needed fields. Paginate results instead of fetching all. Use webhooks instead of polling for real-time updates. Implement conditional requests with If-None-Match. Cache responses client-side. Consider GraphQL for precise data fetching. Monitor bandwidth in usage dashboard.",
+      "keywords": ["bandwidth", "data transfer", "compression", "field selection", "optimization"]
+    },
+    {
+      "id": "doc_monitoring_001",
+      "title": "Performance Monitoring",
+      "category": "performance",
+      "content": "Monitor API performance in Dashboard > Analytics. Metrics include: request count, error rate, latency (p50, p95, p99), bandwidth usage. Set up alerts for thresholds: latency >500ms, error rate >1%. Export metrics to monitoring systems (Datadog, New Relic, Prometheus). Use X-Request-ID for request tracing. Response headers include timing information. Weekly performance reports available.",
+      "keywords": ["monitoring", "analytics", "metrics", "latency", "alerts", "Datadog"]
+    },
+    {
+      "id": "doc_concurrency_001",
+      "title": "Concurrent Request Limits",
+      "category": "performance",
+      "content": "Concurrent request limits control simultaneous connections. Limits by plan: Free - 10 concurrent, Starter - 50, Pro - 200, Enterprise - custom. Exceeding returns 429 with specific error about concurrency limit. Different from rate limits which control requests per minute. Use connection pooling to stay within limits. Queue excess requests client-side. Monitor concurrent connections in dashboard.",
+      "keywords": ["concurrent requests", "connection limit", "simultaneous", "429", "throttling"]
+    },
+    {
+      "id": "doc_regions_001",
+      "title": "Regional Endpoints",
+      "category": "performance",
+      "content": "Use regional endpoints for lower latency. Available regions: us.api.example.com (US East), eu.api.example.com (Europe), ap.api.example.com (Asia Pacific). Choose region closest to your users. Latency reduction: typically 50-80ms improvement. Data stays in selected region for compliance. Configure in SDK or directly in requests. Regional status available on status page. Failover to other regions not automatic.",
+      "keywords": ["regional", "latency", "endpoints", "US", "EU", "Asia"]
+    },
+    {
+      "id": "doc_query_perf_001",
+      "title": "Query Optimization",
+      "category": "performance",
+      "content": "Optimize API queries for performance: Use filters to reduce result set size. Request only indexed fields for sorting. Avoid deep pagination (offset >10000) - use cursor pagination instead. Use search endpoint for complex queries instead of list+filter. Limit fields returned with 'fields' parameter. Avoid wildcard searches at beginning of string. Monitor slow queries in dashboard.",
+      "keywords": ["query optimization", "filters", "indexed fields", "cursor pagination", "search"]
+    },
+    {
+      "id": "doc_scaling_001",
+      "title": "Handling Traffic Spikes",
+      "category": "performance",
+      "content": "Handle high traffic spikes: Implement client-side rate limiting to stay within quotas. Use circuit breaker pattern - stop requests when error rate high. Queue non-critical requests during spikes. Enable response caching to reduce backend load. Pre-scale before expected events. Contact sales for temporary burst capacity. Use async endpoints for heavy operations. Monitor queue depth and latency.",
+      "keywords": ["traffic spike", "scaling", "circuit breaker", "burst", "high traffic"]
+    },
+    {
+      "id": "doc_benchmark_001",
+      "title": "API Benchmarking",
+      "category": "performance",
+      "content": "Benchmark API performance using tools: k6, wrk, Apache Bench (ab), Gatling. Test from multiple geographic regions. Measure: requests per second, latency percentiles (p50, p95, p99), error rate. Compare against SLA targets. Test realistic scenarios: mixed read/write, authenticated requests. Use sandbox environment for benchmarking. Don't benchmark against production. Report results to optimize integration.",
+      "keywords": ["benchmark", "load testing", "k6", "performance testing", "stress test"]
+    },
+    {
+      "id": "doc_coldstart_001",
+      "title": "Cold Start Optimization",
+      "category": "performance",
+      "content": "Reduce cold start latency: Keep-alive connections prevent TCP/TLS handshake on each request. SDK connection pooling helps. Provisioned capacity (Enterprise) keeps instances warm. Send periodic warm-up requests during low traffic. First request may be slower - design UX accordingly. Serverless integrations have inherent cold starts. Pre-connect during page load for browser applications.",
+      "keywords": ["cold start", "warm-up", "connection keep-alive", "latency", "first request"]
+    },
+    {
+      "id": "doc_payload_001",
+      "title": "Payload Size Limits",
+      "category": "performance",
+      "content": "Payload size limits: Request body maximum 10MB. Response body maximum 50MB. For larger data, use streaming endpoints or file upload/download. Compression reduces effective size - 10MB compressed can be 50MB+ uncompressed. Individual field limits: 65KB for strings. Pagination required for large collections. Headers limited to 8KB total. URL length maximum 2000 characters.",
+      "keywords": ["payload size", "request limit", "response limit", "10MB", "50MB"]
+    },
+    {
+      "id": "doc_pagination_perf_001",
+      "title": "Efficient Pagination",
+      "category": "performance",
+      "content": "Pagination best practices: Use cursor-based pagination for large datasets (>10K items) - O(1) performance regardless of page. Offset pagination is O(n) - avoid for deep pages. Limit page size to 100 items. Don't fetch pages you don't need. Prefetch next page for smoother UX. Handle items added/deleted between pages with cursors. Total count queries can be expensive - cache or estimate.",
+      "keywords": ["pagination", "cursor", "offset", "page size", "efficient"]
+    },
+    {
+      "id": "doc_slack_001",
+      "title": "Slack Integration",
+      "category": "integration",
+      "content": "Integrate with Slack: Install from Settings > Integrations > Slack. Authorize the Slack app in your workspace. Configure notification channels - select which events post to which channels. Available commands: /query for quick searches, /status for system status. Interactive messages for approvals. Bot responds to mentions. Customize message format in settings. Supports private channels with invitation.",
+      "keywords": ["Slack", "integration", "notifications", "slash commands", "chat"]
+    },
+    {
+      "id": "doc_zapier_001",
+      "title": "Zapier Integration",
+      "category": "integration",
+      "content": "Connect via Zapier for no-code automation. Search 'Our App' in Zapier's app directory. Connect using your API key. Available triggers: new record, updated record, deleted record. Available actions: create, update, delete, search. Build zaps connecting to 5000+ other apps. Test zap before enabling. Premium Zapier features may require paid Zapier plan. Webhooks used for real-time triggers.",
+      "keywords": ["Zapier", "automation", "no-code", "triggers", "actions", "zap"]
+    },
+    {
+      "id": "doc_github_001",
+      "title": "GitHub Integration",
+      "category": "integration",
+      "content": "Integrate with GitHub: Settings > Integrations > GitHub > Connect. Authorize OAuth app, select repositories. Features: link issues to records, sync PR status, trigger workflows on events. Configure sync options: one-way or bidirectional. Map GitHub labels to record fields. Webhook events: push, PR opened/merged, issue created/closed. Requires repository admin or write access.",
+      "keywords": ["GitHub", "integration", "repository", "issues", "pull requests"]
+    },
+    {
+      "id": "doc_salesforce_001",
+      "title": "Salesforce Integration",
+      "category": "integration",
+      "content": "Salesforce integration (Enterprise): Settings > Integrations > Salesforce. Connect via OAuth - requires Salesforce admin approval. Map objects: Contacts, Accounts, Opportunities, custom objects. Configure sync direction: Salesforce to us, us to Salesforce, or bidirectional. Set sync frequency and conflict resolution. Field mapping supports formulas. Initial sync may take hours for large orgs.",
+      "keywords": ["Salesforce", "CRM", "integration", "sync", "Enterprise"]
+    },
+    {
+      "id": "doc_s3_001",
+      "title": "AWS S3 Integration",
+      "category": "integration",
+      "content": "Connect AWS S3 for file storage and backups. Settings > Integrations > AWS. Provide: IAM access key and secret, or IAM role ARN for cross-account access. Specify bucket name and optional path prefix. Enable for: file storage (uploads go directly to S3), backup sync (daily snapshots), export delivery. Ensure bucket policy allows our service. Server-side encryption supported.",
+      "keywords": ["AWS", "S3", "storage", "backup", "IAM", "bucket"]
+    },
+    {
+      "id": "doc_sheets_001",
+      "title": "Google Sheets Integration",
+      "category": "integration",
+      "content": "Sync with Google Sheets: Settings > Integrations > Google Sheets. Authorize Google account access. Select existing spreadsheet or create new. Map columns to record fields. Sync options: one-way export, one-way import, bidirectional. Set sync frequency: real-time, hourly, daily. First row used as headers. Supports formulas and formatting. Large sheets may have sync delays.",
+      "keywords": ["Google Sheets", "spreadsheet", "sync", "import", "export"]
+    },
+    {
+      "id": "doc_stripe_001",
+      "title": "Stripe Integration",
+      "category": "integration",
+      "content": "Integrate Stripe for payments: Billing > Payment Settings > Connect Stripe. Authorize your Stripe account. Enables automatic payment processing for subscriptions. Webhook events synced: payment succeeded, failed, refunded. Customer and subscription data linked. Supports multiple currencies. Test mode available with Stripe test keys. PCI compliance handled by Stripe.",
+      "keywords": ["Stripe", "payments", "billing", "subscription", "credit card"]
+    },
+    {
+      "id": "doc_jira_001",
+      "title": "JIRA Integration",
+      "category": "integration",
+      "content": "Connect to JIRA: Settings > Integrations > JIRA. Authenticate with Atlassian (cloud) or provide server URL (self-hosted). Select JIRA project. Map issue types to record types. Configure field mapping: priority, status, assignee. Two-way sync: changes in either system reflect in the other. Create JIRA issues from records. Link existing issues. Requires JIRA project admin access.",
+      "keywords": ["JIRA", "Atlassian", "issue tracking", "project management", "sync"]
+    },
+    {
+      "id": "doc_teams_001",
+      "title": "Microsoft Teams Integration",
+      "category": "integration",
+      "content": "Integrate Microsoft Teams: Install app from Teams app store or Settings > Integrations > Teams. Authorize with Microsoft account. Configure channels for notifications. Features: post notifications on events, interactive cards for actions, bot commands for queries. Webhook option for simpler setup. Configure message templates. Supports private channels with app installation.",
+      "keywords": ["Microsoft Teams", "Teams", "notifications", "chat", "bot"]
+    },
+    {
+      "id": "doc_datadog_001",
+      "title": "Datadog Integration",
+      "category": "integration",
+      "content": "Export metrics to Datadog: Settings > Integrations > Datadog. Enter Datadog API key (from Datadog > Integrations > APIs). Metrics exported: request count, latency percentiles, error rate, webhook delivery. Create dashboards in Datadog using exported metrics. Set up Datadog monitors for alerting. Custom tags support for filtering. Logs export available on Enterprise.",
+      "keywords": ["Datadog", "monitoring", "metrics", "APM", "observability"]
+    },
+    {
+      "id": "doc_twilio_001",
+      "title": "Twilio Integration",
+      "category": "integration",
+      "content": "SMS notifications via Twilio: Settings > Integrations > Twilio. Enter Account SID and Auth Token from Twilio console. Configure phone numbers for sending SMS. Set up SMS notifications for events. Two-way messaging: receive SMS responses. Supports MMS for images. Usage billed through Twilio. Test mode available. Configure message templates with variables.",
+      "keywords": ["Twilio", "SMS", "text message", "notifications", "phone"]
+    },
+    {
+      "id": "doc_pagerduty_001",
+      "title": "PagerDuty Integration",
+      "category": "integration",
+      "content": "Incident alerting via PagerDuty: Settings > Integrations > PagerDuty. Create PagerDuty service integration, copy integration key. Enter key in our settings. Configure alert routing: which events trigger incidents. Set severity levels. Incidents auto-resolve when issues clear. Supports PagerDuty escalation policies. Test integration with manual trigger.",
+      "keywords": ["PagerDuty", "alerting", "incidents", "on-call", "escalation"]
+    },
+    {
+      "id": "doc_elasticsearch_001",
+      "title": "Elasticsearch Integration",
+      "category": "integration",
+      "content": "Connect Elasticsearch for advanced search and analytics. Settings > Integrations > Elasticsearch. Provide endpoint URL and credentials (basic auth or API key). Configure index mapping - we create indices automatically. Enable for: log streaming (real-time logs), data sync (records to ES), full-text search. Supports Elastic Cloud and self-hosted. Bulk operations for efficiency.",
+      "keywords": ["Elasticsearch", "search", "analytics", "logging", "ELK"]
+    },
+    {
+      "id": "doc_sendgrid_001",
+      "title": "SendGrid Integration",
+      "category": "integration",
+      "content": "Email delivery via SendGrid: Settings > Integrations > SendGrid. Enter SendGrid API key. Configure 'From' email address (must be verified in SendGrid). All system emails sent through SendGrid. Webhooks for delivery events: delivered, bounced, opened. Email templates managed in SendGrid. Supports dynamic templates with variables. Monitor delivery metrics in SendGrid dashboard.",
+      "keywords": ["SendGrid", "email", "SMTP", "delivery", "notifications"]
+    },
+    {
+      "id": "doc_okta_001",
+      "title": "Okta SSO Setup",
+      "category": "integration",
+      "content": "Configure Okta SSO: In Okta admin, create new SAML 2.0 application. Enter our ACS URL and Entity ID (provided in SSO settings). Configure attribute statements: email (required), firstName, lastName, groups. Download Okta metadata XML. In our settings: Settings > SSO > Upload Metadata. Configure attribute mapping. Test SAML login. Enable SSO enforcement for organization.",
+      "keywords": ["Okta", "SSO", "SAML", "identity provider", "authentication"]
+    },
+    {
+      "id": "doc_import_001",
+      "title": "Data Import Formats",
+      "category": "data",
+      "content": "Supported import formats: CSV (comma-separated values with headers), JSON (array of objects or newline-delimited), XML (with defined schema), Excel (.xlsx, first sheet by default). Maximum file size: 100MB. For larger imports, split into multiple files or use streaming API. Encoding: UTF-8 required. Date format: ISO 8601 recommended. Schema validation available.",
+      "keywords": ["import", "file format", "CSV", "JSON", "XML", "Excel"]
+    },
+    {
+      "id": "doc_csv_import_001",
+      "title": "CSV Import Process",
+      "category": "data",
+      "content": "Import CSV data: Data > Import > Upload CSV File. First row must contain column headers. Map CSV columns to record fields in UI. Preview first 10 rows to verify mapping. Choose import mode: create (new records only), update (existing records by ID), upsert (create or update). Validation errors shown per row. Download error report for failed rows. Large files processed asynchronously.",
+      "keywords": ["CSV import", "column mapping", "upload", "create", "update"]
+    },
+    {
+      "id": "doc_json_export_001",
+      "title": "JSON Export",
+      "category": "data",
+      "content": "Export data as JSON: Data > Export > Select JSON format. Choose fields to include or export all. Apply filters to limit records. Date range selection available. Small exports (< 10MB) download immediately. Large exports processed in background - download link emailed. API endpoint: POST /exports {format: 'json', filters: {...}}. JSON structure: array of objects with all selected fields.",
+      "keywords": ["JSON export", "download", "export", "data extraction"]
+    },
+    {
+      "id": "doc_validation_001",
+      "title": "Data Validation Rules",
+      "category": "data",
+      "content": "Data validation rules: Required fields must have values (not null, not empty string). Type validation: string, number, boolean, date, array, object. Format validation: email, URL, UUID, phone. Range validation: min/max for numbers, minLength/maxLength for strings. Pattern validation: custom regex supported. Unique constraints: prevent duplicate values in specified fields. Validation errors return field-level details.",
+      "keywords": ["validation", "required fields", "data types", "regex", "constraints"]
+    },
+    {
+      "id": "doc_duplicates_001",
+      "title": "Duplicate Handling",
+      "category": "data",
+      "content": "Handle duplicate records: Define unique constraints on fields (email, external_id). Import options for duplicates: skip (ignore duplicates), update (merge with existing), fail (reject entire batch). API upsert: POST /resources/upsert creates if not exists, updates if exists. Duplicate detection uses exact match by default. Fuzzy matching available for merge suggestions. Deduplicate existing data with Data > Tools > Deduplicate.",
+      "keywords": ["duplicates", "unique constraint", "upsert", "deduplication", "merge"]
+    },
+    {
+      "id": "doc_bulk_delete_001",
+      "title": "Bulk Delete Operations",
+      "category": "data",
+      "content": "Bulk delete records: POST /bulk/delete with request body containing IDs array or filter criteria. Example: {\"ids\": [\"id1\", \"id2\"]} or {\"filter\": {\"status\": \"archived\"}}. Maximum 10,000 records per request. Returns count of deleted records. Operation is irreversible - records permanently removed. Deleted records not recoverable. Consider soft delete (status change) for reversible deletion.",
+      "keywords": ["bulk delete", "mass delete", "filter delete", "permanent deletion"]
+    },
+    {
+      "id": "doc_transform_001",
+      "title": "Data Transformation",
+      "category": "data",
+      "content": "Transform data during import: Field mapping supports expressions. Available functions: concat(field1, field2), split(field, delimiter), format_date(field, format), uppercase(), lowercase(), trim(), replace(). Conditional mapping: if_empty(field, default). Type conversion: to_number(), to_string(), to_date(). Enterprise: custom JavaScript transforms for complex logic. Preview transforms before applying.",
+      "keywords": ["data transformation", "field mapping", "functions", "conversion"]
+    },
+    {
+      "id": "doc_sync_001",
+      "title": "Data Sync Scheduling",
+      "category": "data",
+      "content": "Schedule automated data sync: Data > Sync > Create Schedule. Configure source: external API endpoint, database connection, or file location (S3, SFTP). Set frequency: every hour, daily at specific time, weekly. Define mapping and transformation rules. Error handling: retry failed syncs, notification on failure. View sync history and logs. Pause or modify schedules anytime. Sync status monitored in dashboard.",
+      "keywords": ["data sync", "scheduled sync", "automation", "ETL", "synchronization"]
+    },
+    {
+      "id": "doc_null_001",
+      "title": "Null Value Handling",
+      "category": "data",
+      "content": "Handling null values: In JSON, represent as null (not empty string). In CSV, empty cell is null. Optional fields accept null values. Required fields reject null. API responses include null fields by default. Use 'omit_null=true' parameter to exclude null fields from response. In filters: {\"field\": null} matches null values, {\"field\": {\"ne\": null}} matches non-null. Null sorts last in ascending order.",
+      "keywords": ["null", "empty", "null values", "optional fields", "missing data"]
+    },
+    {
+      "id": "doc_backup_001",
+      "title": "Data Backup",
+      "category": "data",
+      "content": "Data backup options: Automatic daily backups retained for 30 days (configurable on Enterprise). Manual backup: Data > Backup > Create Backup Now. Download backup as JSON or sync to cloud storage (S3, GCS). Point-in-time recovery (Enterprise): restore to any timestamp within retention period. Backups include all data and metadata. Test restore periodically. Backup encryption matches data encryption settings.",
+      "keywords": ["backup", "restore", "disaster recovery", "data protection", "export"]
+    },
+    {
+      "id": "doc_dates_001",
+      "title": "Date Format Standards",
+      "category": "data",
+      "content": "Date format standards: ISO 8601 is preferred and recommended: 2024-01-15T10:30:00Z. Also accepted: date only (2024-01-15), Unix timestamp in milliseconds (1705315800000). All dates stored and returned in UTC. Include timezone offset for local times: 2024-01-15T10:30:00+05:30. Date-only fields ignore time component. Use date filters: created_after, created_before with ISO format.",
+      "keywords": ["date format", "ISO 8601", "timestamp", "UTC", "timezone"]
+    },
+    {
+      "id": "doc_migrate_001",
+      "title": "Environment Data Migration",
+      "category": "data",
+      "content": "Migrate data between environments: Export from source using Data > Export with 'include_ids' option. Import to target environment with 'preserve_ids' option. For large migrations, use streaming migration API. Steps: 1) Export source data, 2) Create target project, 3) Import with ID preservation, 4) Verify record counts, 5) Update integrations to point to new environment. Test thoroughly before switching production.",
+      "keywords": ["migration", "environment", "data transfer", "preserve IDs"]
+    },
+    {
+      "id": "doc_archive_001",
+      "title": "Data Archiving",
+      "category": "data",
+      "content": "Archive old data to reduce costs: Data > Archive > Set Archive Rules. Define criteria: records older than X days, specific status values. Archived data remains queryable but with higher latency. Archive storage costs 80% less than active storage. Restore archived records to active when needed. Automatic archiving runs daily. View archive statistics in storage dashboard. Archived data included in backups.",
+      "keywords": ["archive", "cold storage", "old data", "storage costs", "retention"]
+    },
+    {
+      "id": "doc_encoding_001",
+      "title": "Character Encoding",
+      "category": "data",
+      "content": "Character encoding requirements: All API requests and responses use UTF-8 encoding. CSV imports: specify encoding in upload (UTF-8, UTF-16, Latin-1). BOM (Byte Order Mark) handled automatically. Emoji and special characters fully supported. HTML entities should be decoded before sending. JSON strings properly escape special characters. Binary data should be base64 encoded. Verify encoding when seeing garbled characters.",
+      "keywords": ["encoding", "UTF-8", "character set", "emoji", "special characters"]
+    }
+  ]
+}
