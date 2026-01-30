@@ -91,28 +91,29 @@ class OpenAIClient:
         timeout: Optional[float] = None,
     ):
         # Use config settings if not provided
-        if api_key is None:
-            api_key = settings.llm.openai_api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-
         if provider is None:
-            # Auto-detect provider from environment
-            if os.getenv("OPENROUTER_API_KEY"):
-                provider = "openrouter"
-            else:
-                provider = "openai"
+            provider = settings.llm.provider  # From LLM__PROVIDER
+
+        if api_key is None:
+            api_key = settings.llm.api_key  # Auto-selects based on provider
+
+        if base_url is None:
+            base_url = settings.llm.base_url  # Auto-selects based on provider
+
+        if default_model is None:
+            default_model = settings.llm.model  # From LLM__MODEL
 
         if timeout is None:
             timeout = settings.llm.request_timeout
 
-        # Get preset config
+        # Fallback to preset if config not set
         preset = PRESETS.get(provider, PRESETS["openai"])
-
-        self.base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or preset["base_url"]
-        self.default_model = default_model or settings.llm.openai_model or preset["default_model"]
+        self.base_url = base_url or preset["base_url"]
+        self.default_model = default_model or preset["default_model"]
         self.provider = provider
 
         self.client = AsyncOpenAI(
-            api_key=api_key,
+            api_key=api_key or "not-needed",  # Local may not need key
             base_url=self.base_url,
             timeout=timeout,
         )
