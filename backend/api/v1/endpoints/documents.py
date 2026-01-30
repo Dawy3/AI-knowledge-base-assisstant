@@ -191,7 +191,7 @@ async def process_document_background(
             db_chunks = []
             for i, chunk in enumerate(chunks):
                 db_chunk = DocumentChunk(
-                    id=uuid.UUID(chunk.chunk_id) if hasattr(chunk, 'chunk_id') else uuid.uuid4(),
+                    id=uuid.uuid4(),  # Always generate a fresh UUID for DB
                     document_id=document_id,
                     chunk_index=i,
                     content=chunk.content,
