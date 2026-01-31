@@ -71,11 +71,12 @@ class JsonFormatter(logging.Formatter):
 @dataclass
 class QueryLog:
     """Structured log for a query."""
-    
+
     query_id: str
     query: str
     user_id: Optional[str] = None
-    
+    query_type: Optional[str] = None
+
     # Retrieval
     chunks_retrieved: int = 0
     retrieval_latency_ms: float = 0
@@ -90,6 +91,7 @@ class QueryLog:
     
     # Cache
     cache_hit: bool = False
+    cache_layer: Optional[str] = None
     
     # Timing
     total_latency_ms: float = 0
@@ -183,10 +185,14 @@ class QueryLogger:
             f"Generated {completion_tokens} tokens in {latency_ms:.1f}ms"
         )
     
-    def log_cache_hit(self, log: QueryLog) -> None:
+    def log_cache_hit(self, log: QueryLog, layer: Optional[str] = None) -> None:
         """Log cache hit."""
         log.cache_hit = True
-        self.logger.debug("Cache hit")
+        log.cache_layer = layer
+        if layer:
+            self.logger.debug(f"Cache hit (layer: {layer})")
+        else:
+            self.logger.debug("Cache hit")
     
     def log_error(self, log: QueryLog, error: str) -> None:
         """Log error."""

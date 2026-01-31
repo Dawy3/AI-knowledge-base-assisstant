@@ -544,7 +544,7 @@ async def _stream_response(
     Handle streaming chat response with full RAG pipeline.
     """
     # Route query
-    if request.model_tier:
+    if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
         tier = ModelTier(request.model_tier)
     else:
         routing_decision = query_router.route(request.message)
@@ -663,7 +663,7 @@ async def _save_query_log(
             query_id=query_id,
             query=log.query,
             query_type=log.query_type,
-            chunks_retrieved=log.chunks_retrieved if hasattr(log, 'chunks_retrieved') else [],
+            chunks_retrieved=[],  # JSONB column expects list, logging tracks count separately
             retrieval_latency_ms=log.retrieval_latency_ms if hasattr(log, 'retrieval_latency_ms') else None,
             search_type=log.search_type if hasattr(log, 'search_type') else None,
             response=log.response if hasattr(log, 'response') else None,
