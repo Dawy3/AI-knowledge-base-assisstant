@@ -173,8 +173,19 @@ def get_semantic_cache():
             redis_client = None
 
         embedding_gen = get_embedding_generator()
+
+        # Sync wrapper for async embed function (required by SemanticCache)
+        # Uses thread pool to avoid "event loop already running" error
+        def sync_embed(text):
+            import asyncio
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, embedding_gen.embed_texts([text]))
+                result = future.result()
+                return result.embeddings[0]
+
         _semantic_cache = SemanticCache(
-            embed_func=lambda text: embedding_gen.embed_texts([text]).embeddings[0],
+            embed_func=sync_embed,
             redis_client=redis_client,
             similarity_threshold=settings.cache.semantic_cache_threshold,
             ttl_seconds=settings.cache.semantic_cache_ttl,
@@ -325,7 +336,7 @@ async def chat(
         # =================================================================
         # Step 2: Classify and Route Query
         # =================================================================
-        if request.model_tier:
+        if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
             tier = ModelTier(request.model_tier)
             query_type = "user_specified"
         else:
