@@ -58,18 +58,22 @@ services:
       # Redis Cache (from .env - Redis Cloud)
       - REDIS_URL=${REDIS_URL}
 
-      # LLM & Embeddings
+      # LLM Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER}
+      - LLM_MODEL=${LLM_MODEL}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL}
+
+      # Embedding Configuration
+      - EMBEDDING_MODEL_PROVIDER=${EMBEDDING_MODEL_PROVIDER}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS}
       - HF_TOKEN=${HF_TOKEN}
-      - EMBEDDING__MODEL_PROVIDER=${EMBEDDING__MODEL_PROVIDER}
-      - EMBEDDING__MODEL_NAME=${EMBEDDING__MODEL_NAME}
-      - EMBEDDING__DIMENSIONS=${EMBEDDING__DIMENSIONS}
 
       # App settings
-      - APP_ENV=production
+      - APP_ENV=development
       - LOG_LEVEL=INFO
-      - DEBUG=false
+      - DEBUG=true
 
       # CORS - allow frontend
       - CORS_ORIGINS=["http://localhost:3000","http://frontend:3000"]
