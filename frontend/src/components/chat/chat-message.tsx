@@ -64,9 +64,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
         >
           {isUser ? (
             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            <div className="prose text-sm">
+          ) : message.content ? (
+            <div className="prose prose-sm max-w-none dark:prose-invert">
               <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 py-1 px-1">
+              <span className="w-2 h-2 bg-foreground/70 rounded-full loading-dot" />
+              <span className="w-2 h-2 bg-foreground/70 rounded-full loading-dot" />
+              <span className="w-2 h-2 bg-foreground/70 rounded-full loading-dot" />
             </div>
           )}
         </div>

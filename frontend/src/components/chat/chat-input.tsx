@@ -68,7 +68,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           history,
           stream: true,
           use_cache: useCache,
-          model_tier: modelTier,
+          ...(modelTier && { model_tier: modelTier }),  // Only send if set
           temperature,
           max_tokens: maxTokens,
         })) {
@@ -103,7 +103,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           history,
           stream: false,
           use_cache: useCache,
-          model_tier: modelTier,
+          ...(modelTier && { model_tier: modelTier }),  // Only send if set
           temperature,
           max_tokens: maxTokens,
         })
