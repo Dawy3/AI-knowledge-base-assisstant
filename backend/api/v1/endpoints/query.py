@@ -166,14 +166,15 @@ def get_semantic_cache():
 
         embedding_gen = get_embedding_generator()
 
+        # Sync wrapper for async embed function (required by SemanticCache)
+        # Uses thread pool to avoid "event loop already running" error
         def sync_embed(text):
             import asyncio
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(embedding_gen.embed_texts([text]))
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, embedding_gen.embed_texts([text]))
+                result = future.result()
                 return result.embeddings[0]
-            finally:
-                loop.close()
 
         _semantic_cache = SemanticCache(
             embed_func=sync_embed,
