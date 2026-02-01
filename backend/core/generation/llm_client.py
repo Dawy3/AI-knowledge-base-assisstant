@@ -346,7 +346,7 @@ class LLMClient:
         ) as response:
             response.raise_for_status()
             
-            async for line in response.iter_lines():
+            async for line in response.aiter_lines():
                 if line.startswith("data: "):
                     data = line[6:]
                     if data == "[DONE]":
