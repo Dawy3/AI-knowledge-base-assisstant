@@ -674,18 +674,36 @@ class VectorSearch:
         
         k = top_k or self.default_top_k
         
-        results = await self.store.search(
+        raw_results = await self.store.search(
             query_embedding=query_embedding,
             top_k=k,
             filter=filter,
         )
-        
+
         latency_ms = (time.time() - start_time) * 1000
-        
+
+        # Convert dict results to VectorSearchResult objects
+        # Handles stores that return dicts (e.g., QdrantAdapter, PGVectorAdapter)
+        results = []
+        for r in raw_results:
+            if isinstance(r, dict):
+                metadata = r.get("metadata", {})
+                results.append(VectorSearchResult(
+                    chunk_id=r.get("id", r.get("chunk_id", "")),
+                    score=r.get("score", 0.0),
+                    content=metadata.get("content", ""),
+                    metadata=metadata,
+                    document_id=metadata.get("document_id", ""),
+                    chunk_index=metadata.get("chunk_index", 0),
+                ))
+            else:
+                # Already a VectorSearchResult
+                results.append(r)
+
         logger.debug(
             f"Vector search returned {len(results)} results in {latency_ms:.2f}ms"
         )
-        
+
         return VectorSearchResponse(
             results=results,
             query_embedding=query_embedding,
