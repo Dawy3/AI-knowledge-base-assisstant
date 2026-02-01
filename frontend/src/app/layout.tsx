@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/components/providers'
+import { AssistantProvider } from '@/components/assistant'
 
 export const metadata: Metadata = {
   title: 'AI Knowledge Assistant',
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
-          {children}
+          <AssistantProvider>
+            {children}
+          </AssistantProvider>
         </Providers>
       </body>
     </html>
