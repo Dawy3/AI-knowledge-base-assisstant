@@ -369,41 +369,34 @@ async def chat(
         retrieval_latency = (time.perf_counter() - retrieval_start) * 1000
 
         # =================================================================
-        # Step 4: Rerank top-100 → top-10
-        # EXPECTED: +5-10% precision improvement
+        # Step 4: Use top results (reranking disabled for performance)
         # =================================================================
-        rerank_start = time.perf_counter()
-        reranker = get_reranker()
+        # Convert search results to reranker-like format for compatibility
+        class SimpleResult:
+            def __init__(self, r, rank):
+                self.chunk_id = r.chunk_id
+                self.content = r.content
+                self.rerank_score = r.combined_score
+                self.metadata = r.metadata
+                self.document_id = r.document_id
 
-        # Convert to reranker format
-        candidates = [
-            {
-                "chunk_id": r.chunk_id,
-                "content": r.content,
-                "score": r.combined_score,
-                "metadata": r.metadata,
-                "document_id": r.document_id,
-            }
-            for r in search_response.results
-        ]
+        class SimpleRerankerResult:
+            def __init__(self, results):
+                self.results = results
 
-        rerank_result = await reranker.rerank(
-            query=request.message,
-            candidates=candidates,
-            top_k=request.top_k,
-        )
-
-        rerank_latency = (time.perf_counter() - rerank_start) * 1000
+        rerank_result = SimpleRerankerResult([
+            SimpleResult(r, i) for i, r in enumerate(search_response.results[:request.top_k])
+        ])
 
         query_logger.log_retrieval(
             log=log,
             chunks=len(rerank_result.results),
-            latency_ms=retrieval_latency + rerank_latency,
-            search_type="hybrid+rerank",
+            latency_ms=retrieval_latency,
+            search_type="hybrid",
         )
 
         metrics.record_retrieval(
-            latency=(retrieval_latency + rerank_latency) / 1000,
+            latency=retrieval_latency / 1000,
             results=len(rerank_result.results),
             search_type="hybrid",
         )
@@ -562,28 +555,13 @@ async def _stream_response(
         filter=request.filter,
     )
 
-    # Rerank
-    reranker = get_reranker()
-    candidates = [
-        {
-            "chunk_id": r.chunk_id,
-            "content": r.content,
-            "score": r.combined_score,
-            "metadata": r.metadata,
-            "document_id": r.document_id,
-        }
-        for r in search_response.results
-    ]
-    rerank_result = await reranker.rerank(
-        query=request.message,
-        candidates=candidates,
-        top_k=request.top_k,
-    )
+    # Skip reranking for performance - use search results directly
+    top_results = search_response.results[:request.top_k]
 
     # Build context
     chunk_dicts = [
-        {"content": r.content, "score": r.rerank_score}
-        for r in rerank_result.results
+        {"content": r.content, "score": r.combined_score}
+        for r in top_results
     ]
     contexts = context_builder.build(chunks=chunk_dicts, query_type="complex")
 
