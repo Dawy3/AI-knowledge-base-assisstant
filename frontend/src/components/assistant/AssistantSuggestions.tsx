@@ -1,39 +1,43 @@
 'use client'
 
-import { useState, useRef, useEffect, KeyboardEvent } from 'react'
-import { Send, Loader2 } from 'lucide-react'
+import { FileQuestion, BookOpen, Search, Lightbulb } from 'lucide-react'
 import { useChatStore, useSettingsStore } from '@/lib/store'
-import { sendChatMessage, streamChatMessage } from '@/lib/api'
+import { streamChatMessage, sendChatMessage } from '@/lib/api'
 
-interface ChatInputProps {
+interface AssistantSuggestionsProps {
   conversationId: string
 }
 
-export function ChatInput({ conversationId }: ChatInputProps) {
-  const [input, setInput] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+const suggestions = [
+  {
+    icon: FileQuestion,
+    text: 'What documents do I have?',
+  },
+  {
+    icon: BookOpen,
+    text: 'Summarize my knowledge base',
+  },
+  {
+    icon: Search,
+    text: 'Find information about...',
+  },
+  {
+    icon: Lightbulb,
+    text: 'What topics are covered?',
+  },
+]
 
-  const { addMessage, updateMessage, isStreaming, setStreaming, getMessageHistory } = useChatStore()
+export function AssistantSuggestions({ conversationId }: AssistantSuggestionsProps) {
+  const { addMessage, updateMessage, setStreaming, getMessageHistory } = useChatStore()
   const { modelTier, useCache, temperature, maxTokens } = useSettingsStore()
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
-    }
-  }, [input])
-
-  const handleSubmit = async () => {
-    if (!input.trim() || isStreaming) return
-
-    const userMessage = input.trim()
-    setInput('')
+  const handleSuggestionClick = async (text: string) => {
     setStreaming(true)
 
     // Add user message
     addMessage(conversationId, {
       role: 'user',
-      content: userMessage,
+      content: text,
     })
 
     // Add placeholder for assistant message
@@ -43,9 +47,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
     })
 
     try {
-      const history = getMessageHistory(conversationId).slice(0, -1) // Exclude the empty assistant message
-
-      // Try streaming first
+      const history = getMessageHistory(conversationId).slice(0, -1)
       let fullResponse = ''
       let responseData: {
         queryId?: string
@@ -62,16 +64,15 @@ export function ChatInput({ conversationId }: ChatInputProps) {
 
       try {
         for await (const chunk of streamChatMessage({
-          message: userMessage,
+          message: text,
           conversation_id: conversationId,
           history,
           stream: true,
           use_cache: useCache,
-          ...(modelTier && { model_tier: modelTier }),  // Only send if set
+          ...(modelTier && { model_tier: modelTier }),
           temperature,
           max_tokens: maxTokens,
         })) {
-          // Try to parse JSON response (final chunk with metadata)
           if (chunk.startsWith('{')) {
             try {
               const parsed = JSON.parse(chunk)
@@ -90,19 +91,16 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           } else {
             fullResponse += chunk
           }
-
-          // Update the message content as it streams
           updateMessage(conversationId, assistantMessageId, fullResponse)
         }
       } catch {
-        // Fallback to non-streaming if streaming fails
         const response = await sendChatMessage({
-          message: userMessage,
+          message: text,
           conversation_id: conversationId,
           history,
           stream: false,
           use_cache: useCache,
-          ...(modelTier && { model_tier: modelTier }),  // Only send if set
+          ...(modelTier && { model_tier: modelTier }),
           temperature,
           max_tokens: maxTokens,
         })
@@ -115,11 +113,10 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           model: response.model,
           latencyMs: response.latency_ms,
         }
-
         updateMessage(conversationId, assistantMessageId, fullResponse)
       }
 
-      // Update the final message with metadata
+      // Update final message with metadata
       const conversations = useChatStore.getState().conversations
       const conversation = conversations.find((c) => c.id === conversationId)
       if (conversation) {
@@ -154,43 +151,21 @@ export function ChatInput({ conversationId }: ChatInputProps) {
     }
   }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
-
   return (
-    <div className="border-t border-border p-4">
-      <div className="flex items-end gap-3">
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question about your documents..."
-            disabled={isStreaming}
-            rows={1}
-            className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-50"
-          />
+    <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
+      {suggestions.map((suggestion, index) => {
+        const Icon = suggestion.icon
+        return (
           <button
-            onClick={handleSubmit}
-            disabled={!input.trim() || isStreaming}
-            className="absolute right-2 bottom-2 p-2 rounded-lg bg-foreground text-background disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+            key={index}
+            onClick={() => handleSuggestionClick(suggestion.text)}
+            className="flex items-center gap-2 p-3 text-xs text-left bg-muted hover:bg-accent rounded-lg transition-colors"
           >
-            {isStreaming ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+            <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <span className="line-clamp-2">{suggestion.text}</span>
           </button>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground text-center mt-2">
-        Press Enter to send, Shift+Enter for new line
-      </p>
+        )
+      })}
     </div>
   )
 }
