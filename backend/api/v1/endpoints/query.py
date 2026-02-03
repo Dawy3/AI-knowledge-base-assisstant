@@ -190,8 +190,26 @@ async def get_hybrid_search():
     global _hybrid_search
     if _hybrid_search is None:
         vector_store = get_vector_store()
+
+        # Ensure vector store is connected
+        try:
+            await vector_store.connect()
+        except Exception as e:
+            logger.debug(f"Vector store connect (may already be connected): {e}")
+
         vector_search = VectorSearch(vector_store)
         bm25_search = BM25Search()
+
+        # Build BM25 index from vector store documents
+        try:
+            all_docs = await vector_store.get_all_documents()
+            if all_docs:
+                bm25_search.index(all_docs)
+                logger.info(f"BM25 index built with {len(all_docs)} documents")
+            else:
+                logger.warning("No documents in vector store, BM25 index empty")
+        except Exception as e:
+            logger.warning(f"Failed to build BM25 index: {e}", exc_info=True)
 
         _hybrid_search = create_hybrid_search(
             vector_search=vector_search,
@@ -580,3 +598,17 @@ async def query_health():
         health_status["cache_status"] = f"error: {e}"
 
     return health_status
+
+
+@router.post("/cache/clear")
+async def clear_cache():
+    """Clear the semantic cache."""
+    try:
+        cache = get_semantic_cache()
+        if cache:
+            cache.clear()
+            return {"status": "success", "message": "Cache cleared"}
+        return {"status": "warning", "message": "Cache not initialized"}
+    except Exception as e:
+        logger.error(f"Failed to clear cache: {e}")
+        return {"status": "error", "message": str(e)}
