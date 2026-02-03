@@ -160,9 +160,14 @@ class SemanticCache:
         metadata: Optional[dict] = None,
     ) -> None:
         """Cache a query-response pair."""
+        # NEVER cache empty responses
+        if not response or not response.strip():
+            logger.warning(f"Skipping cache for empty response: query='{query[:50]}...'")
+            return
+
         query_hash = self._hash_query(query)
         embedding = self.embed_func(query)
-        
+
         entry = CacheEntry(
             query=query,
             response=response,
@@ -170,7 +175,7 @@ class SemanticCache:
             metadata=metadata or {},
             created_at=time.time(),
         )
-        
+
         # Store in Redis or memory
         if self.redis:
             await self._redis_set(query_hash, entry)
@@ -180,16 +185,31 @@ class SemanticCache:
     async def _exact_match(self, query: str) -> Optional[str]:
         """Layer 1: Exact hash match."""
         query_hash = self._hash_query(query)
-        
+
         if self.redis:
             data = self.redis.get(f"{self.prefix}:exact:{query_hash}")
             if data:
                 entry = json.loads(data)
-                return entry["response"]
+                response = entry.get("response", "")
+                # Skip empty cached responses
+                if response and response.strip():
+                    return response
+                else:
+                    # Delete corrupted cache entry
+                    self.redis.delete(f"{self.prefix}:exact:{query_hash}")
+                    logger.warning(f"Deleted corrupted cache entry (empty response)")
         else:
             if query_hash in self._memory_cache:
-                return self._memory_cache[query_hash].response
-        
+                response = self._memory_cache[query_hash].response
+                # Skip empty cached responses
+                if response and response.strip():
+                    return response
+                else:
+                    # Delete corrupted cache entry
+                    del self._memory_cache[query_hash]
+                    self._embeddings = [(k, e) for k, e in self._embeddings if k != query_hash]
+                    logger.warning(f"Deleted corrupted cache entry (empty response)")
+
         return None
     
     async def _semantic_match(
@@ -228,27 +248,31 @@ class SemanticCache:
         """Find similar queries using cosine similarity."""
         if not self._embeddings:
             return []
-        
+
         # Compute similarities
         similarities = []
         for key, emb in self._embeddings:
             sim = self._cosine_similarity(query_embedding, emb)
             similarities.append((key, sim))
-        
+
         # Sort by similarity
         similarities.sort(key=lambda x: x[1], reverse=True)
-        
-        # Get top candidates
+
+        # Get top candidates (skip empty responses)
         results = []
-        for key, sim in similarities[:top_k]:
+        for key, sim in similarities[:top_k * 2]:  # Check more to account for skipped
             if key in self._memory_cache:
                 entry = self._memory_cache[key]
-                results.append({
-                    "query": entry.query,
-                    "response": entry.response,
-                    "similarity": sim,
-                })
-        
+                # Skip empty responses
+                if entry.response and entry.response.strip():
+                    results.append({
+                        "query": entry.query,
+                        "response": entry.response,
+                        "similarity": sim,
+                    })
+                    if len(results) >= top_k:
+                        break
+
         return results
     
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
