@@ -198,8 +198,26 @@ async def get_hybrid_search():
     global _hybrid_search
     if _hybrid_search is None:
         vector_store = get_vector_store()
+
+        # Ensure vector store is connected
+        try:
+            await vector_store.connect()
+        except Exception as e:
+            logger.debug(f"Vector store connect (may already be connected): {e}")
+
         vector_search = VectorSearch(vector_store)
         bm25_search = BM25Search()
+
+        # Build BM25 index from vector store documents
+        try:
+            all_docs = await vector_store.get_all_documents()
+            if all_docs:
+                bm25_search.index(all_docs)
+                logger.info(f"BM25 index built with {len(all_docs)} documents")
+            else:
+                logger.warning("No documents in vector store, BM25 index empty")
+        except Exception as e:
+            logger.warning(f"Failed to build BM25 index: {e}", exc_info=True)
 
         _hybrid_search = create_hybrid_search(
             vector_search=vector_search,
@@ -286,25 +304,10 @@ async def chat(
     )
 
     try:
-        # Handle streaming separately
-        if request.stream:
-            return await _stream_response(
-                request=request,
-                db=db,
-                query_id=query_id,
-                conversation_id=conversation_id,
-                log=log,
-                llm_client=llm_client,
-                query_router=query_router,
-                prompt_manager=prompt_manager,
-                context_builder=context_builder,
-            )
-
         # =================================================================
-        # Step 1: Check Semantic Cache FIRST
+        # Step 1: Check Semantic Cache FIRST (for ALL requests)
         # MUST: 50-70% cost savings from cache hits
         # =================================================================
-        cache_result = None
         if request.use_cache:
             semantic_cache = get_semantic_cache()
             if semantic_cache:
@@ -321,6 +324,25 @@ async def chat(
                     # Store in DB
                     await _save_query_log(db, log, query_id, conversation_id)
 
+                    # Handle streaming cache hit
+                    if request.stream:
+                        async def stream_cached():
+                            yield f"data: {cache_result.response}\n\n"
+                            yield "data: [DONE]\n\n"
+
+                        return StreamingResponse(
+                            stream_cached(),
+                            media_type="text/event-stream",
+                            headers={
+                                "X-Query-ID": query_id,
+                                "X-Conversation-ID": conversation_id,
+                                "X-Cache-Hit": "true",
+                                "X-Cache-Similarity": str(cache_result.similarity),
+                                "Cache-Control": "no-cache",
+                                "Connection": "keep-alive",
+                            },
+                        )
+
                     return ChatResponse(
                         query_id=query_id,
                         message=cache_result.response,
@@ -332,6 +354,20 @@ async def chat(
                     )
 
         metrics.record_cache("semantic", hit=False)
+
+        # Handle streaming separately (after cache check)
+        if request.stream:
+            return await _stream_response(
+                request=request,
+                db=db,
+                query_id=query_id,
+                conversation_id=conversation_id,
+                log=log,
+                llm_client=llm_client,
+                query_router=query_router,
+                prompt_manager=prompt_manager,
+                context_builder=context_builder,
+            )
 
         # =================================================================
         # Step 2: Classify and Route Query
