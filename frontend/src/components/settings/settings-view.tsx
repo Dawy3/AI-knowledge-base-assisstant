@@ -1,6 +1,6 @@
 'use client'
 
-import { Settings, Zap, Database, Thermometer, Hash, Key, User, Trash2 } from 'lucide-react'
+import { Settings, Zap, Thermometer, Hash, Key, User, Trash2 } from 'lucide-react'
 import { useSettingsStore, useChatStore } from '@/lib/store'
 
 export function SettingsView() {
@@ -8,13 +8,11 @@ export function SettingsView() {
     apiKey,
     userId,
     modelTier,
-    useCache,
     temperature,
     maxTokens,
     setApiKey,
     setUserId,
     setModelTier,
-    setUseCache,
     setTemperature,
     setMaxTokens,
   } = useSettingsStore()
@@ -140,35 +138,6 @@ export function SettingsView() {
             <p className="text-xs text-muted-foreground">
               Maximum number of tokens in the response (128-4096).
             </p>
-          </div>
-        </section>
-
-        {/* Cache Settings */}
-        <section className="rounded-xl border border-border p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Performance</h2>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Database className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Semantic Caching</p>
-                <p className="text-xs text-muted-foreground">
-                  Use cached responses for similar queries (50-70% cost savings)
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setUseCache(!useCache)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                useCache ? 'bg-foreground' : 'bg-border'
-              }`}
-            >
-              <span
-                className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${
-                  useCache ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
           </div>
         </section>
 

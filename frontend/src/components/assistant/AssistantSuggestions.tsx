@@ -29,7 +29,7 @@ const suggestions = [
 
 export function AssistantSuggestions({ conversationId }: AssistantSuggestionsProps) {
   const { addMessage, updateMessage, setStreaming, getMessageHistory } = useChatStore()
-  const { modelTier, useCache, temperature, maxTokens } = useSettingsStore()
+  const { modelTier, temperature, maxTokens } = useSettingsStore()
 
   const handleSuggestionClick = async (text: string) => {
     setStreaming(true)
@@ -68,7 +68,7 @@ export function AssistantSuggestions({ conversationId }: AssistantSuggestionsPro
           conversation_id: conversationId,
           history,
           stream: true,
-          use_cache: useCache,
+          use_cache: true,
           ...(modelTier && { model_tier: modelTier }),
           temperature,
           max_tokens: maxTokens,
@@ -99,7 +99,7 @@ export function AssistantSuggestions({ conversationId }: AssistantSuggestionsPro
           conversation_id: conversationId,
           history,
           stream: false,
-          use_cache: useCache,
+          use_cache: true,
           ...(modelTier && { model_tier: modelTier }),
           temperature,
           max_tokens: maxTokens,

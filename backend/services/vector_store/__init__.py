@@ -69,6 +69,15 @@ class BaseVectorStore(ABC):
         """Close connection."""
         pass
 
+    async def get_all_documents(self) -> list[dict]:
+        """
+        Fetch all documents from the store.
+
+        Returns:
+            List of {"chunk_id": str, "content": str, "metadata": dict}
+        """
+        return []  # Default implementation returns empty list
+
 
 class PGVectorAdapter(BaseVectorStore):
     """Adapter for PGVector store."""
@@ -146,6 +155,9 @@ class QdrantAdapter(BaseVectorStore):
 
     async def close(self):
         await self._store.close()
+
+    async def get_all_documents(self) -> list[dict]:
+        return await self._store.get_all_documents()
 
 
 class PineconeAdapter(BaseVectorStore):

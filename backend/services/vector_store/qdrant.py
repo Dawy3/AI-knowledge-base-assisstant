@@ -207,3 +207,44 @@ class QdrantStore:
             "points_count": info.points_count,
             "status": info.status.name if hasattr(info.status, 'name') else str(info.status),
         }
+
+    async def get_all_documents(self, batch_size: int = 100) -> list[dict]:
+        """
+        Fetch all documents from the collection using scroll.
+
+        Returns:
+            List of {"chunk_id": str, "content": str, "metadata": dict, "document_id": str}
+        """
+        if not self.client:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        all_docs = []
+        offset = None
+
+        while True:
+            results, offset = self.client.scroll(
+                collection_name=self.collection,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            for point in results:
+                payload = point.payload or {}
+                original_id = payload.get("_original_id", str(point.id))
+                content = payload.get("content", payload.get("text", ""))
+                document_id = payload.get("document_id", "")
+
+                all_docs.append({
+                    "chunk_id": original_id,
+                    "content": content,
+                    "metadata": payload,
+                    "document_id": document_id,
+                })
+
+            if offset is None:
+                break
+
+        logger.info(f"Fetched {len(all_docs)} documents from {self.collection}")
+        return all_docs

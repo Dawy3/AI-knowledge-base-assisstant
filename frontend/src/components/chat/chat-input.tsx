@@ -14,7 +14,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { addMessage, updateMessage, isStreaming, setStreaming, getMessageHistory } = useChatStore()
-  const { modelTier, useCache, temperature, maxTokens } = useSettingsStore()
+  const { modelTier, temperature, maxTokens } = useSettingsStore()
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -66,7 +66,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           conversation_id: conversationId,
           history,
           stream: true,
-          use_cache: useCache,
+          use_cache: true,
           ...(modelTier && { model_tier: modelTier }),  // Only send if set
           temperature,
           max_tokens: maxTokens,
@@ -101,7 +101,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           conversation_id: conversationId,
           history,
           stream: false,
-          use_cache: useCache,
+          use_cache: true,
           ...(modelTier && { model_tier: modelTier }),  // Only send if set
           temperature,
           max_tokens: maxTokens,
