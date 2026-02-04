@@ -2,7 +2,7 @@
 
 import { FileQuestion, BookOpen, Search, Lightbulb } from 'lucide-react'
 import { useChatStore, useSettingsStore } from '@/lib/store'
-import { streamChatMessage, sendChatMessage } from '@/lib/api'
+import { sendChatMessage } from '@/lib/api'
 
 interface AssistantSuggestionsProps {
   conversationId: string
@@ -48,73 +48,18 @@ export function AssistantSuggestions({ conversationId }: AssistantSuggestionsPro
 
     try {
       const history = getMessageHistory(conversationId).slice(0, -1)
-      let fullResponse = ''
-      let responseData: {
-        queryId?: string
-        sources?: Array<{
-          chunk_id: string
-          document_id: string
-          content_preview: string
-          score: number
-        }>
-        cached?: boolean
-        model?: string
-        latencyMs?: number
-      } = {}
 
-      try {
-        for await (const chunk of streamChatMessage({
-          message: text,
-          conversation_id: conversationId,
-          history,
-          stream: true,
-          use_cache: true,
-          ...(modelTier && { model_tier: modelTier }),
-          temperature,
-          max_tokens: maxTokens,
-        })) {
-          if (chunk.startsWith('{')) {
-            try {
-              const parsed = JSON.parse(chunk)
-              if (parsed.query_id) {
-                responseData = {
-                  queryId: parsed.query_id,
-                  sources: parsed.sources,
-                  cached: parsed.cached,
-                  model: parsed.model,
-                  latencyMs: parsed.latency_ms,
-                }
-              }
-            } catch {
-              fullResponse += chunk
-            }
-          } else {
-            fullResponse += chunk
-          }
-          updateMessage(conversationId, assistantMessageId, fullResponse)
-        }
-      } catch {
-        const response = await sendChatMessage({
-          message: text,
-          conversation_id: conversationId,
-          history,
-          stream: false,
-          use_cache: true,
-          ...(modelTier && { model_tier: modelTier }),
-          temperature,
-          max_tokens: maxTokens,
-        })
-
-        fullResponse = response.message
-        responseData = {
-          queryId: response.query_id,
-          sources: response.sources,
-          cached: response.cached,
-          model: response.model,
-          latencyMs: response.latency_ms,
-        }
-        updateMessage(conversationId, assistantMessageId, fullResponse)
-      }
+      // Use REST endpoint (no streaming)
+      const response = await sendChatMessage({
+        message: text,
+        conversation_id: conversationId,
+        history,
+        stream: false,
+        use_cache: true,
+        ...(modelTier && { model_tier: modelTier }),
+        temperature,
+        max_tokens: maxTokens,
+      })
 
       // Update final message with metadata
       const conversations = useChatStore.getState().conversations
@@ -124,12 +69,12 @@ export function AssistantSuggestions({ conversationId }: AssistantSuggestionsPro
           msg.id === assistantMessageId
             ? {
                 ...msg,
-                content: fullResponse,
-                queryId: responseData.queryId,
-                sources: responseData.sources,
-                cached: responseData.cached,
-                model: responseData.model,
-                latencyMs: responseData.latencyMs,
+                content: response.message,
+                queryId: response.query_id,
+                sources: response.sources,
+                cached: response.cached,
+                model: response.model,
+                latencyMs: response.latency_ms,
               }
             : msg
         )

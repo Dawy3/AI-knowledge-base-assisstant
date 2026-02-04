@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { useChatStore, useSettingsStore } from '@/lib/store'
-import { sendChatMessage, streamChatMessage } from '@/lib/api'
+import { sendChatMessage } from '@/lib/api'
 
 interface ChatInputProps {
   conversationId: string
@@ -45,81 +45,19 @@ export function ChatInput({ conversationId }: ChatInputProps) {
     try {
       const history = getMessageHistory(conversationId).slice(0, -1) // Exclude the empty assistant message
 
-      // Try streaming first
-      let fullResponse = ''
-      let responseData: {
-        queryId?: string
-        sources?: Array<{
-          chunk_id: string
-          document_id: string
-          content_preview: string
-          score: number
-        }>
-        cached?: boolean
-        model?: string
-        latencyMs?: number
-      } = {}
+      // Use REST endpoint (no streaming)
+      const response = await sendChatMessage({
+        message: userMessage,
+        conversation_id: conversationId,
+        history,
+        stream: false,
+        use_cache: true,
+        ...(modelTier && { model_tier: modelTier }),
+        temperature,
+        max_tokens: maxTokens,
+      })
 
-      try {
-        for await (const chunk of streamChatMessage({
-          message: userMessage,
-          conversation_id: conversationId,
-          history,
-          stream: true,
-          use_cache: true,
-          ...(modelTier && { model_tier: modelTier }),  // Only send if set
-          temperature,
-          max_tokens: maxTokens,
-        })) {
-          // Try to parse JSON response (final chunk with metadata)
-          if (chunk.startsWith('{')) {
-            try {
-              const parsed = JSON.parse(chunk)
-              if (parsed.query_id) {
-                responseData = {
-                  queryId: parsed.query_id,
-                  sources: parsed.sources,
-                  cached: parsed.cached,
-                  model: parsed.model,
-                  latencyMs: parsed.latency_ms,
-                }
-              }
-            } catch {
-              fullResponse += chunk
-            }
-          } else {
-            fullResponse += chunk
-          }
-
-          // Update the message content as it streams
-          updateMessage(conversationId, assistantMessageId, fullResponse)
-        }
-      } catch {
-        // Fallback to non-streaming if streaming fails
-        const response = await sendChatMessage({
-          message: userMessage,
-          conversation_id: conversationId,
-          history,
-          stream: false,
-          use_cache: true,
-          ...(modelTier && { model_tier: modelTier }),  // Only send if set
-          temperature,
-          max_tokens: maxTokens,
-        })
-
-        fullResponse = response.message
-        responseData = {
-          queryId: response.query_id,
-          sources: response.sources,
-          cached: response.cached,
-          model: response.model,
-          latencyMs: response.latency_ms,
-        }
-
-        updateMessage(conversationId, assistantMessageId, fullResponse)
-      }
-
-      // Update the final message with metadata
+      // Update the message with full response and metadata
       const conversations = useChatStore.getState().conversations
       const conversation = conversations.find((c) => c.id === conversationId)
       if (conversation) {
@@ -127,12 +65,12 @@ export function ChatInput({ conversationId }: ChatInputProps) {
           msg.id === assistantMessageId
             ? {
                 ...msg,
-                content: fullResponse,
-                queryId: responseData.queryId,
-                sources: responseData.sources,
-                cached: responseData.cached,
-                model: responseData.model,
-                latencyMs: responseData.latencyMs,
+                content: response.message,
+                queryId: response.query_id,
+                sources: response.sources,
+                cached: response.cached,
+                model: response.model,
+                latencyMs: response.latency_ms,
               }
             : msg
         )

@@ -35,14 +35,46 @@ export function DocumentsView() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteDocument,
-    onSuccess: () => {
+    onMutate: async (documentId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['documents'] })
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['documents', page])
+
+      // Optimistically update - remove the document immediately
+      queryClient.setQueryData(['documents', page], (old: typeof data) => {
+        if (!old) return old
+        return {
+          ...old,
+          documents: old.documents.filter((doc: Document) => doc.id !== documentId),
+          total: old.total - 1,
+        }
+      })
+
+      return { previousData }
+    },
+    onError: (error, _documentId, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['documents', page], context.previousData)
+      }
+      console.error('Delete failed:', error)
+      alert(`Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    },
+    onSettled: () => {
+      // Refetch after error or success
       queryClient.invalidateQueries({ queryKey: ['documents'] })
     },
   })
 
   const handleDelete = async (doc: Document) => {
+    console.log('Delete clicked for:', doc.id, doc.filename)
     if (confirm(`Are you sure you want to delete "${doc.filename}"?`)) {
+      console.log('Delete confirmed, calling API...')
       deleteMutation.mutate(doc.id)
+    } else {
+      console.log('Delete cancelled')
     }
   }
 
@@ -150,7 +182,7 @@ export function DocumentsView() {
                   <button
                     onClick={() => handleDelete(doc)}
                     disabled={deleteMutation.isPending}
-                    className="p-2 rounded-lg hover:bg-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 cursor-pointer"
                     title="Delete document"
                   >
                     <Trash2 className="w-4 h-4" />
