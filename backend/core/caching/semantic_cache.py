@@ -160,13 +160,22 @@ class SemanticCache:
         metadata: Optional[dict] = None,
     ) -> None:
         """Cache a query-response pair."""
-        # NEVER cache empty responses
+        # Log what we're caching
+        response_preview = response[:100] if response else "(empty)"
+        logger.info(f"Caching response for query='{query[:50]}...': response_len={len(response) if response else 0}, preview='{response_preview}...'")
+
+        # Skip empty responses to avoid caching failures
         if not response or not response.strip():
             logger.warning(f"Skipping cache for empty response: query='{query[:50]}...'")
             return
 
         query_hash = self._hash_query(query)
-        embedding = self.embed_func(query)
+
+        try:
+            embedding = self.embed_func(query)
+        except Exception as e:
+            logger.error(f"Failed to embed query for caching: {e}")
+            return
 
         entry = CacheEntry(
             query=query,
@@ -177,10 +186,15 @@ class SemanticCache:
         )
 
         # Store in Redis or memory
-        if self.redis:
-            await self._redis_set(query_hash, entry)
-        else:
-            self._memory_set(query_hash, entry)
+        try:
+            if self.redis:
+                await self._redis_set(query_hash, entry)
+                logger.info(f"Cached in Redis: query_hash={query_hash}")
+            else:
+                self._memory_set(query_hash, entry)
+                logger.info(f"Cached in memory: query_hash={query_hash}")
+        except Exception as e:
+            logger.error(f"Failed to store cache entry: {e}")
     
     async def _exact_match(self, query: str) -> Optional[str]:
         """Layer 1: Exact hash match."""
