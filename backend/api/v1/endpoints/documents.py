@@ -595,9 +595,17 @@ async def delete_document(
     - All chunks from PostgreSQL
     - All vectors from vector store
     """
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid document ID format: {document_id}",
+        )
+
     # Check document exists
     result = await db.execute(
-        select(Document).where(Document.id == uuid.UUID(document_id))
+        select(Document).where(Document.id == doc_uuid)
     )
     doc = result.scalar_one_or_none()
 
@@ -607,21 +615,27 @@ async def delete_document(
             detail=f"Document not found: {document_id}",
         )
 
-    # Delete vectors from vector store
+    # Delete vectors from vector store (don't fail if vector store has issues)
     try:
         vector_store = get_vector_store()
+        await vector_store.connect()  # Ensure connected
         await vector_store.delete(filter={"document_id": document_id})
         logger.info(f"Deleted vectors for document {document_id}")
     except Exception as e:
-        logger.warning(f"Failed to delete vectors: {e}")
+        logger.warning(f"Failed to delete vectors (continuing anyway): {e}")
 
-    # Delete chunks from PostgreSQL
-    chunks_result = await db.execute(
-        select(DocumentChunk).where(DocumentChunk.document_id == document_id)
-    )
-    chunks = chunks_result.scalars().all()
-    for chunk in chunks:
-        await db.delete(chunk)
+    # Delete chunks from PostgreSQL (document_id is stored as string in chunks table)
+    try:
+        chunks_result = await db.execute(
+            select(DocumentChunk).where(DocumentChunk.document_id == document_id)
+        )
+        chunks = chunks_result.scalars().all()
+        for chunk in chunks:
+            await db.delete(chunk)
+        chunks_deleted = len(chunks)
+    except Exception as e:
+        logger.warning(f"Failed to delete chunks: {e}")
+        chunks_deleted = 0
 
     # Delete document from PostgreSQL
     await db.delete(doc)
@@ -632,7 +646,7 @@ async def delete_document(
     return {
         "document_id": document_id,
         "deleted": True,
-        "chunks_deleted": len(chunks),
+        "chunks_deleted": chunks_deleted,
         "message": "Document and all chunks deleted successfully",
     }
 
