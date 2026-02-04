@@ -10,7 +10,7 @@ import uuid
 from typing import Optional
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, HnswConfigDiff, PointStruct, VectorParams, PointIdsList, FilterSelector
+from qdrant_client.models import Distance, HnswConfigDiff, PointStruct, VectorParams, PointIdsList, FilterSelector, Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,9 @@ class QdrantStore:
         if not self.client:
             raise RuntimeError("Not connected. Call connect() first.")
 
+        # Ensure collection exists (handles case where collection was deleted)
+        self._ensure_collection()
+
         metadata = metadata or [{} for _ in ids]
 
         # Store original ID in metadata and convert to UUID for Qdrant
@@ -145,6 +148,9 @@ class QdrantStore:
         """Search for similar vectors."""
         if not self.client:
             raise RuntimeError("Not connected. Call connect() first.")
+
+        # Ensure collection exists (handles case where collection was deleted)
+        self._ensure_collection()
 
         # Use query_points for newer qdrant-client versions
         results = self.client.query_points(
@@ -184,9 +190,17 @@ class QdrantStore:
             )
             logger.info(f"Deleted {len(ids)} vectors from {self.collection}")
         elif filter:
+            # Convert dict filter to Qdrant Filter object
+            # Expected format: {"document_id": "some-id"}
+            conditions = []
+            for key, value in filter.items():
+                conditions.append(
+                    FieldCondition(key=key, match=MatchValue(value=value))
+                )
+            qdrant_filter = Filter(must=conditions)
             self.client.delete(
                 collection_name=self.collection,
-                points_selector=FilterSelector(filter=filter),
+                points_selector=FilterSelector(filter=qdrant_filter),
             )
             logger.info(f"Deleted vectors with filter from {self.collection}")
 
