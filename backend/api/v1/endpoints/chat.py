@@ -319,8 +319,8 @@ async def chat(
 
     FOCUS: Stream responses, log every query+response
     FULL PRODUCTION PIPELINE:
-    1. Check semantic cache → return if hit (50-70% cost savings)
-    2. Route query → select model tier (router internally classifies)
+    1. Route query → classify and select model tier (~12ms)
+    2. Check semantic cache → return if hit (50-70% cost savings)
     3. Transform query → generate 3-5 variations (+15-25% recall)
     4. Compress conversation history → sliding window (60-70% token reduction)
     5. Retrieve context (hybrid search: vector + BM25)
@@ -343,7 +343,22 @@ async def chat(
 
     try:
         # =================================================================
-        # Step 1: Check Semantic Cache FIRST (for ALL requests)
+        # Step 1: Route Query (classify and select model tier)
+        # Fast: ~12ms, enables query-type aware caching
+        # =================================================================
+        if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
+            tier = ModelTier(request.model_tier)
+            query_type = "user_specified"
+        else:
+            routing_decision = query_router.route(request.message)
+            tier = routing_decision.tier
+            query_type = routing_decision.category.value
+
+        log.query_type = query_type
+        metrics.record_routing(tier.value)
+
+        # =================================================================
+        # Step 2: Check Semantic Cache
         # MUST: 50-70% cost savings from cache hits
         # =================================================================
         if request.use_cache:
@@ -401,25 +416,12 @@ async def chat(
                 query_id=query_id,
                 conversation_id=conversation_id,
                 log=log,
+                tier=tier,
+                query_type=query_type,
                 llm_client=llm_client,
-                query_router=query_router,
                 prompt_manager=prompt_manager,
                 context_builder=context_builder,
             )
-
-        # =================================================================
-        # Step 2: Classify and Route Query
-        # =================================================================
-        if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
-            tier = ModelTier(request.model_tier)
-            query_type = "user_specified"
-        else:
-            routing_decision = query_router.route(request.message)
-            tier = routing_decision.tier
-            query_type = routing_decision.category.value
-
-        log.query_type = query_type
-        metrics.record_routing(tier.value)
 
         # =================================================================
         # Step 3: Transform Query (Multi-query generation)
@@ -688,30 +690,24 @@ async def _stream_response(
     query_id: str,
     conversation_id: str,
     log: QueryLog,
+    tier: ModelTier,
+    query_type: str,
     llm_client: LLMClient,
-    query_router: QueryRouter,
     prompt_manager: PromptManager,
     context_builder: ContextBuilder,
 ) -> StreamingResponse:
     """
     Handle streaming chat response with FULL RAG pipeline.
 
-    Same pipeline as non-streaming:
-    1. Route query
-    2. Transform query (multi-query)
-    3. Compress history (ConversationMemory)
-    4. Hybrid search with all variations
-    5. Rerank with cross-encoder
-    6. Filter by relevance
-    7. Generate with streaming
+    Routing is done before this function is called.
+    Pipeline continues with:
+    1. Transform query (multi-query)
+    2. Compress history (ConversationMemory)
+    3. Hybrid search with all variations
+    4. Rerank with cross-encoder
+    5. Filter by relevance
+    6. Generate with streaming
     """
-    # Route query
-    if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
-        tier = ModelTier(request.model_tier)
-    else:
-        routing_decision = query_router.route(request.message)
-        tier = routing_decision.tier
-
     # Transform query (multi-query generation)
     transformer = get_query_transformer()
     transformed = await transformer.transform(request.message)
@@ -786,7 +782,9 @@ async def _stream_response(
         {"content": c.content, "score": c.relevance_score}
         for c in final_results
     ]
-    contexts = context_builder.build(chunks=chunk_dicts, query_type="complex")
+    # Determine context size based on query complexity
+    context_type = "simple" if query_type in ("simple", "faq") else "complex"
+    contexts = context_builder.build(chunks=chunk_dicts, query_type=context_type)
 
     # Build prompt with compressed history
     system_prompt, user_prompt = prompt_manager.build_rag_prompt(
