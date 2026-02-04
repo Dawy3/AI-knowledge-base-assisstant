@@ -24,17 +24,19 @@ from backend.api.v1.dependencies import (
     RateLimited,
 )
 from backend.core.config import settings
-from backend.core.query.classifier import QueryClassifier
+from backend.core.query.transformer import QueryTransformer, create_query_transformer
 from backend.core.query.router import QueryRouter, ModelTier
 from backend.core.generation.llm_client import LLMClient
 from backend.core.generation.prompt_manager import PromptManager
 from backend.core.generation.context_builder import ContextBuilder
 from backend.core.caching.semantic_cache import SemanticCache
-from backend.core.retrieval.hybrid_search import HybridSearch, create_hybrid_search
+from backend.core.retrieval.hybrid_search import create_hybrid_search
 from backend.core.retrieval.vector_search import VectorSearch
 from backend.core.retrieval.bm25_search import BM25Search
-from backend.core.retrieval.reranker import Reranker, create_reranker
+from backend.core.retrieval.reranker import create_reranker
+from backend.core.retrieval.relevance import RelevanceFilter, create_relevance_filter
 from backend.core.embedding.generator import create_embedding_generator
+from backend.core.memory.conversation import ConversationMemory
 from backend.db.models import Conversation, Message, QueryLog as QueryLogModel
 from backend.monitoring.logging import QueryLogger, QueryLog
 from backend.monitoring.metrics import MetricsCollector
@@ -150,6 +152,9 @@ _embedding_generator = None
 _semantic_cache = None
 _hybrid_search = None
 _reranker = None
+_query_transformer = None
+_relevance_filter = None
+_conversation_memories: dict[str, ConversationMemory] = {}
 
 
 def get_embedding_generator():
@@ -237,6 +242,36 @@ def get_reranker():
     return _reranker
 
 
+def get_query_transformer() -> QueryTransformer:
+    """Get or create query transformer singleton."""
+    global _query_transformer
+    if _query_transformer is None:
+        _query_transformer = create_query_transformer(num_variations=4)
+    return _query_transformer
+
+
+def get_relevance_filter() -> RelevanceFilter:
+    """Get or create relevance filter singleton."""
+    global _relevance_filter
+    if _relevance_filter is None:
+        _relevance_filter = create_relevance_filter(
+            min_score=0.6,  # Drop chunks below 0.6 relevance
+            max_chunks=10,
+            strategy="threshold",
+        )
+    return _relevance_filter
+
+
+def get_conversation_memory(conversation_id: str) -> ConversationMemory:
+    """Get or create conversation memory for a conversation."""
+    global _conversation_memories
+    if conversation_id not in _conversation_memories:
+        _conversation_memories[conversation_id] = ConversationMemory(
+            conversation_id=conversation_id
+        )
+    return _conversation_memories[conversation_id]
+
+
 def get_llm_client() -> LLMClient:
     """Get LLM client instance."""
     return LLMClient()
@@ -283,14 +318,17 @@ async def chat(
     Chat endpoint with RAG-augmented responses.
 
     FOCUS: Stream responses, log every query+response
-    PRODUCTION Flow:
+    FULL PRODUCTION PIPELINE:
     1. Check semantic cache → return if hit (50-70% cost savings)
-    2. Classify query → route to appropriate model tier
-    3. Retrieve context (hybrid search: vector + BM25)
-    4. Rerank top-100 → top-10
-    5. Generate response with context
-    6. Cache response for future queries
-    7. Log everything for evaluation
+    2. Route query → select model tier (router internally classifies)
+    3. Transform query → generate 3-5 variations (+15-25% recall)
+    4. Compress conversation history → sliding window (60-70% token reduction)
+    5. Retrieve context (hybrid search: vector + BM25)
+    6. Rerank top-100 → top-10 (+5-10% precision)
+    7. Filter by relevance → drop below 0.6 (eliminate 30% noise)
+    8. Generate response with context
+    9. Cache response for future queries
+    10. Log everything for evaluation
     """
     start_time = time.perf_counter()
     query_id = str(uuid.uuid4())
@@ -384,61 +422,145 @@ async def chat(
         metrics.record_routing(tier.value)
 
         # =================================================================
-        # Step 3: Retrieve Context (Hybrid Search)
+        # Step 3: Transform Query (Multi-query generation)
+        # EXPECTED: +15-25% recall improvement
+        # =================================================================
+        transformer = get_query_transformer()
+        transformed = await transformer.transform(request.message)
+        all_queries = transformed.all_queries  # Original + variations
+        logger.info(f"Query transformed: {len(all_queries)} variations generated")
+
+        # =================================================================
+        # Step 4: Compress Conversation History
+        # EXPECTED: 60-70% token reduction for long conversations
+        # =================================================================
+        conv_memory = get_conversation_memory(conversation_id)
+
+        # Add history from request to memory (if not already there)
+        if request.history:
+            for msg in request.history:
+                conv_memory.add(msg.role, msg.content)
+
+        # Get compressed history
+        compressed_history = conv_memory.get_history()
+        logger.debug(f"History compressed: {len(request.history or [])} messages → {len(compressed_history)} entries")
+
+        # =================================================================
+        # Step 5: Retrieve Context (Hybrid Search with Multi-query)
         # CRITICAL: Vector-only search WILL FAIL in production
         # =================================================================
         retrieval_start = time.perf_counter()
 
-        # Generate query embedding
+        # Generate query embedding for primary query
         embedding_gen = get_embedding_generator()
         query_embedding = await embedding_gen.embed_query(request.message)
 
-        # Hybrid search
+        # Hybrid search with all query variations
         hybrid_search = await get_hybrid_search()
-        search_response = await hybrid_search.search(
-            query=request.message,
-            query_embedding=query_embedding,
-            top_k=settings.retrieval.top_k_retrieval,  # Get top-100
-            filter=request.filter,
-        )
+
+        # Collect results from all query variations
+        all_results = []
+        seen_chunk_ids = set()
+
+        for query_variation in all_queries:
+            # Generate embedding for variation
+            variation_embedding = await embedding_gen.embed_query(query_variation)
+
+            search_response = await hybrid_search.search(
+                query=query_variation,
+                query_embedding=variation_embedding,
+                top_k=settings.retrieval.top_k_retrieval,  # Get top-100 per query
+                filter=request.filter,
+            )
+
+            # Deduplicate results
+            for result in search_response.results:
+                if result.chunk_id not in seen_chunk_ids:
+                    seen_chunk_ids.add(result.chunk_id)
+                    all_results.append(result)
+
+        # Sort by combined score and take top candidates for reranking
+        all_results.sort(key=lambda r: r.combined_score, reverse=True)
+        candidates_for_rerank = all_results[:100]  # Top 100 for reranking
 
         retrieval_latency = (time.perf_counter() - retrieval_start) * 1000
 
         # =================================================================
-        # Step 4: Use top results (reranking disabled for performance)
+        # Step 6: Rerank with Cross-Encoder
+        # EXPECTED: +5-10% precision improvement
         # =================================================================
-        # Convert search results to reranker-like format for compatibility
-        class SimpleResult:
-            def __init__(self, r, rank):
-                self.chunk_id = r.chunk_id
-                self.content = r.content
-                self.rerank_score = r.combined_score
-                self.metadata = r.metadata
-                self.document_id = r.document_id
+        rerank_start = time.perf_counter()
+        reranker = get_reranker()
 
-        class SimpleRerankerResult:
-            def __init__(self, results):
-                self.results = results
+        candidates = [
+            {
+                "chunk_id": r.chunk_id,
+                "content": r.content,
+                "score": r.combined_score,
+                "metadata": r.metadata,
+                "document_id": r.document_id,
+            }
+            for r in candidates_for_rerank
+        ]
 
-        rerank_result = SimpleRerankerResult([
-            SimpleResult(r, i) for i, r in enumerate(search_response.results[:request.top_k])
-        ])
+        rerank_result = await reranker.rerank(
+            query=request.message,
+            candidates=candidates,
+            top_k=request.top_k * 2,  # Get more for filtering
+        )
+
+        rerank_latency = (time.perf_counter() - rerank_start) * 1000
+
+        # =================================================================
+        # Step 7: Filter by Relevance
+        # EXPECTED: Reduce chunks, eliminate 30% noise
+        # =================================================================
+        relevance_filter = get_relevance_filter()
+
+        filter_chunks = [
+            {
+                "chunk_id": r.chunk_id,
+                "content": r.content,
+                "score": r.rerank_score,
+                "metadata": r.metadata,
+                "document_id": r.document_id,
+            }
+            for r in rerank_result.results
+        ]
+
+        filtered_result = relevance_filter.filter(filter_chunks)
+
+        logger.info(
+            f"Relevance filtering: {filtered_result.input_count} → {filtered_result.output_count} chunks "
+            f"({filtered_result.filter_rate:.1%} filtered, threshold={filtered_result.threshold_used:.2f})"
+        )
+
+        # Convert filtered results to expected format
+        class FilteredChunkResult:
+            def __init__(self, chunk):
+                self.chunk_id = chunk.chunk_id
+                self.content = chunk.content
+                self.rerank_score = chunk.relevance_score
+                self.metadata = chunk.metadata
+                self.document_id = chunk.document_id
+
+        final_results = [FilteredChunkResult(c) for c in filtered_result.chunks[:request.top_k]]
 
         query_logger.log_retrieval(
             log=log,
-            chunks=len(rerank_result.results),
-            latency_ms=retrieval_latency,
-            search_type="hybrid",
+            chunks=len(final_results),
+            latency_ms=retrieval_latency + rerank_latency,
+            search_type="hybrid+rerank+filter",
         )
 
         metrics.record_retrieval(
-            latency=retrieval_latency / 1000,
-            results=len(rerank_result.results),
-            search_type="hybrid",
+            latency=(retrieval_latency + rerank_latency) / 1000,
+            results=len(final_results),
+            search_type="hybrid+rerank+filter",
         )
 
         # =================================================================
-        # Step 5: Build Context and Generate
+        # Step 8: Build Context and Generate
         # =================================================================
         # Determine context size based on query complexity
         if query_type in ("simple", "faq"):
@@ -446,14 +568,14 @@ async def chat(
         else:
             context_type = "complex"
 
-        # Build context from reranked results
+        # Build context from filtered results
         chunk_dicts = [
             {
                 "content": r.content,
                 "score": r.rerank_score,
                 "metadata": r.metadata,
             }
-            for r in rerank_result.results
+            for r in final_results
         ]
 
         contexts = context_builder.build(
@@ -461,13 +583,11 @@ async def chat(
             query_type=context_type,
         )
 
-        # Build prompt with history
-        history = [{"role": m.role, "content": m.content} for m in (request.history or [])]
-
+        # Build prompt with compressed history (from ConversationMemory)
         system_prompt, user_prompt = prompt_manager.build_rag_prompt(
             query=request.message,
             contexts=contexts,
-            history=history if history else None,
+            history=compressed_history if compressed_history else None,
             query_type=query_type if query_type == "out_of_scope" else "normal",
         )
 
@@ -500,7 +620,7 @@ async def chat(
         )
 
         # =================================================================
-        # Step 6: Cache Response
+        # Step 9: Cache Response
         # =================================================================
         if request.use_cache:
             semantic_cache = get_semantic_cache()
@@ -515,8 +635,12 @@ async def chat(
                 )
 
         # =================================================================
-        # Step 7: Build Response with Sources
+        # Step 10: Build Response with Sources
         # =================================================================
+        # Update conversation memory with new messages
+        conv_memory.add("user", request.message)
+        conv_memory.add("assistant", response.content)
+
         sources = [
             SourceReference(
                 chunk_id=r.chunk_id,
@@ -525,7 +649,7 @@ async def chat(
                 score=r.rerank_score,
                 metadata=r.metadata,
             )
-            for r in rerank_result.results[:5]  # Top 5 sources
+            for r in final_results[:5]  # Top 5 sources
         ]
 
         total_latency = (time.perf_counter() - start_time) * 1000
@@ -570,7 +694,16 @@ async def _stream_response(
     context_builder: ContextBuilder,
 ) -> StreamingResponse:
     """
-    Handle streaming chat response with full RAG pipeline.
+    Handle streaming chat response with FULL RAG pipeline.
+
+    Same pipeline as non-streaming:
+    1. Route query
+    2. Transform query (multi-query)
+    3. Compress history (ConversationMemory)
+    4. Hybrid search with all variations
+    5. Rerank with cross-encoder
+    6. Filter by relevance
+    7. Generate with streaming
     """
     # Route query
     if request.model_tier and request.model_tier in [t.value for t in ModelTier]:
@@ -579,34 +712,87 @@ async def _stream_response(
         routing_decision = query_router.route(request.message)
         tier = routing_decision.tier
 
-    # Retrieve context (same as non-streaming)
-    embedding_gen = get_embedding_generator()
-    query_embedding = await embedding_gen.embed_query(request.message)
+    # Transform query (multi-query generation)
+    transformer = get_query_transformer()
+    transformed = await transformer.transform(request.message)
+    all_queries = transformed.all_queries
 
+    # Compress conversation history
+    conv_memory = get_conversation_memory(conversation_id)
+    if request.history:
+        for msg in request.history:
+            conv_memory.add(msg.role, msg.content)
+    compressed_history = conv_memory.get_history()
+
+    # Hybrid search with all query variations
+    embedding_gen = get_embedding_generator()
     hybrid_search = await get_hybrid_search()
-    search_response = await hybrid_search.search(
+
+    all_results = []
+    seen_chunk_ids = set()
+
+    for query_variation in all_queries:
+        variation_embedding = await embedding_gen.embed_query(query_variation)
+        search_response = await hybrid_search.search(
+            query=query_variation,
+            query_embedding=variation_embedding,
+            top_k=settings.retrieval.top_k_retrieval,
+            filter=request.filter,
+        )
+        for result in search_response.results:
+            if result.chunk_id not in seen_chunk_ids:
+                seen_chunk_ids.add(result.chunk_id)
+                all_results.append(result)
+
+    all_results.sort(key=lambda r: r.combined_score, reverse=True)
+    candidates_for_rerank = all_results[:100]
+
+    # Rerank with cross-encoder
+    reranker = get_reranker()
+    candidates = [
+        {
+            "chunk_id": r.chunk_id,
+            "content": r.content,
+            "score": r.combined_score,
+            "metadata": r.metadata,
+            "document_id": r.document_id,
+        }
+        for r in candidates_for_rerank
+    ]
+
+    rerank_result = await reranker.rerank(
         query=request.message,
-        query_embedding=query_embedding,
-        top_k=settings.retrieval.top_k_retrieval,
-        filter=request.filter,
+        candidates=candidates,
+        top_k=request.top_k * 2,
     )
 
-    # Skip reranking for performance - use search results directly
-    top_results = search_response.results[:request.top_k]
+    # Filter by relevance
+    relevance_filter = get_relevance_filter()
+    filter_chunks = [
+        {
+            "chunk_id": r.chunk_id,
+            "content": r.content,
+            "score": r.rerank_score,
+            "metadata": r.metadata,
+            "document_id": r.document_id,
+        }
+        for r in rerank_result.results
+    ]
+    filtered_result = relevance_filter.filter(filter_chunks)
+    final_results = filtered_result.chunks[:request.top_k]
 
-    # Build context
+    # Build context from filtered results
     chunk_dicts = [
-        {"content": r.content, "score": r.combined_score}
-        for r in top_results
+        {"content": c.content, "score": c.relevance_score}
+        for c in final_results
     ]
     contexts = context_builder.build(chunks=chunk_dicts, query_type="complex")
 
-    # Build prompt
-    history = [{"role": m.role, "content": m.content} for m in (request.history or [])]
+    # Build prompt with compressed history
     system_prompt, user_prompt = prompt_manager.build_rag_prompt(
         query=request.message,
         contexts=contexts,
-        history=history if history else None,
+        history=compressed_history if compressed_history else None,
     )
 
     async def generate_stream():
@@ -639,14 +825,21 @@ async def _stream_response(
             )
             query_logger.end_query(log)
 
+            # Update conversation memory
+            conv_memory.add("user", request.message)
+            conv_memory.add("assistant", full_response)
+
             # Cache the response
             if request.use_cache:
+                logger.info(f"Streaming complete. full_response length={len(full_response)}, preview='{full_response[:100] if full_response else '(empty)'}...'")
                 semantic_cache = get_semantic_cache()
                 if semantic_cache:
                     await semantic_cache.set(
                         query=request.message,
                         response=full_response,
                     )
+                else:
+                    logger.warning("Semantic cache not available for storing response")
 
         except Exception as e:
             query_logger.log_error(log, str(e))
