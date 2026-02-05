@@ -50,7 +50,7 @@ Edit `.env` and fill in your API keys:
 
 ```env
 # LLM Provider (choose one)
-LLM_PROVIDER=openrouter              # or: openai, local
+LLM_PROVIDER=openai             # or: openrouter, local
 LLM_MODEL=openai/gpt-4o-mini        # model name
 OPENROUTER_API_KEY=sk-or-xxx         # if using OpenRouter
 OPENAI_API_KEY=sk-xxx                # if using OpenAI
