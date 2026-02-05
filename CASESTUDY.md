@@ -1,107 +1,172 @@
-# Case Study: AI Knowledge Assistant
-
-## Overview
-
-Built a production-ready RAG (Retrieval-Augmented Generation) system that enables users to query their document knowledge base through a conversational AI interface.
-
-## Business Problem
-
-Organizations struggle to extract insights from growing document repositories. Traditional search returns documents, not answers. Users need an intelligent assistant that understands context and provides direct, cited responses.
-
 ---
+  RAG Pipeline Architecture
 
-## Challenges & Solutions
+  This project is a production-grade Retrieval-Augmented Generation (RAG) Knowledge Assistant. The backend is built with
+   FastAPI and has two major pipelines: a Document Ingestion Pipeline and a Query/Chat Pipeline.
 
-### 1. Cost — LLM API Expenses
+  ---
+  Pipeline 1: Document Ingestion (Upload Flow)
 
-**Problem:** Every query hits the LLM API. Repeated/similar questions multiply costs rapidly at scale.
+  Triggered when a user uploads a document via POST /api/v1/documents/upload.
 
-**Solutions:**
-- **Semantic Caching** — Cache responses keyed by query embeddings. Similar questions (cosine similarity > 0.95) return cached answers instantly
-- **LLM Router** — Route simple queries to GPT-3.5-turbo, complex ones to GPT-4. Reduces average cost per query by ~60%
-- **Smaller Embedding Model** — `text-embedding-3-small` vs large variant. 5x cheaper, minimal accuracy loss
+  Step 1 — Document Processing (services/document_processor.py)
 
----
+  - Purpose: Extract raw text from uploaded files.
+  - Supports PDF (pypdf), DOCX (python-docx), TXT/MD, CSV/Excel (pandas), and HTML (BeautifulSoup).
+  - Returns a ProcessedDocument with the extracted text, metadata, and page count.
 
-### 2. Latency — Slow Response Times
+  Step 2 — Text Preprocessing (core/chunking/preprocessor.py)
 
-**Problem:** Users expect sub-second responses. Vector search + LLM generation creates noticeable delays.
+  - Purpose: Clean and normalize raw text before chunking.
+  - Pipeline: Unicode normalization → control character removal → zero-width char removal → quote/dash normalization →
+  whitespace normalization → optional URL/email removal → custom pattern removal.
 
-**Solutions:**
-- **Qdrant with HNSW Index** — Dedicated vector DB with HNSW (m=16, ef_construct=100). Approximate nearest neighbor gives 10x faster search with 95%+ recall
-- **Streaming Responses** — Server-Sent Events stream tokens as generated. Perceived latency drops from 3s to <500ms first token
-- **Connection Pooling** — SQLAlchemy async pool reuses DB connections. Eliminates connection overhead per request
+  Step 3 — Chunking (core/chunking/strategies.py)
 
----
+  - Purpose: Split text into retrieval-friendly segments (~512 tokens, 50 token overlap).
+  - Uses LangChain text splitters. Strategies available: recursive (default, best for mixed content), fixed
+  (token-based), sentence, semantic (SentenceTransformer-aware), page, and document (whole text).
+  - Each chunk gets a unique ID, token count, character offsets, and metadata.
 
-### 3. Retrieval Quality — Irrelevant Context
+  Step 4 — Embedding Generation (core/embedding/generator.py)
 
-**Problem:** Wrong chunks retrieved = hallucinated or off-topic answers. Garbage in, garbage out.
+  - Purpose: Convert text chunks into vector representations for semantic search.
+  - Supports OpenAI, Cohere, and HuggingFace/local models.
+  - Processes in batches (100-500 per call) with exponential backoff retries.
+  - Uses the Embedding Cache (core/caching/embedding_cache.py) — keyed by content_hash + model_id — to skip re-embedding
+   unchanged content (10-20% cost savings).
+  - Critical rule: NEVER mix embedding models between indexing and querying.
 
-**Solutions:**
-- **Recursive Chunking with Overlap** — 512 token chunks with 50 token overlap. Preserves context across boundaries
-- **Query Expansion** — LLM rewrites user query into multiple semantic variants. Improves recall for ambiguous questions
-- **Top-K with Relevance Threshold** — Retrieve top 5 chunks, filter by minimum similarity score (0.7). Prevents low-quality context injection
+  Step 5 — Vector Storage (services/vector_store/, core/retrieval/vector_search.py)
 
----
+  - Purpose: Store embeddings in a vector database for similarity search.
+  - Supports Qdrant (default, HNSW-native), Pinecone (managed), PGVector, and in-memory (dev).
+  - HNSW index configured with M=16, ef_search=100 for 95%+ recall.
+  - Chunks are also stored in PostgreSQL (db/models.py) for metadata tracking.
 
-### 4. Document Diversity — Multiple Formats
+  Step 6 — BM25 Index Building (core/retrieval/bm25_search.py)
 
-**Problem:** Users upload PDF, DOCX, TXT, MD files. Each format requires different parsing logic.
+  - Purpose: Build a keyword-based search index for exact term matching.
+  - Uses rank_bm25 (BM25Okapi or BM25Plus). Custom tokenizer preserves special characters like error codes and IDs
+  (e.g., ERR-404, SKU-12345).
+  - The BM25 index is built from all documents in the vector store at startup.
 
-**Solutions:**
-- **Format-Specific Extractors** — Dedicated parsers per file type (PyPDF2, python-docx, markdown)
-- **Unified Text Pipeline** — All extractors output plain text → same chunking/embedding flow
-- **Metadata Preservation** — Store source filename, page numbers for citation tracking
+  ---
+  Pipeline 2: Query/Chat (Chat Flow)
 
----
+  Triggered when a user sends a message via POST /api/v1/chat. The full 10-step pipeline is defined in
+  api/v1/endpoints/chat.py:
 
-### 5. Infrastructure Complexity — Deployment Overhead
+  Step 1 — Query Classification & Routing (core/query/classifier.py + core/query/router.py)
 
-**Problem:** Typical RAG stacks require separate vector DB, message queue, cache layer. Complex to deploy and maintain.
+  - Purpose: Classify the query type and route to an appropriate model tier to optimize cost vs quality.
+  - Classifier: Rule-based (regex patterns, heuristics) targeting <12ms. Categorizes queries as: SIMPLE, FAQ, COMPLEX,
+  CONVERSATIONAL, OUT_OF_SCOPE, AMBIGUOUS. Also detects intent (factual, procedural, comparative, troubleshooting, etc.)
+   and computes a complexity score (0-1).
+  - Router: 3-tier model routing pattern:
+    - Tier 1 (70% of queries): Simple model (GPT-3.5) for straightforward Q&A.
+    - Tier 2 (25%): Medium model (GPT-4o-mini) for moderate complexity.
+    - Tier 3 (5%): Best model (GPT-4) for complex reasoning.
+    - When confidence is low, bumps to a higher tier (prefers quality over cost).
+    - Has an AdaptiveRouter that auto-adjusts thresholds every N queries to maintain the 70/25/5 distribution.
 
-**Solutions:**
-- **Qdrant for Vectors, PostgreSQL for Relational** — Clear separation of concerns. Qdrant handles vector similarity search (optimized HNSW). PostgreSQL stores conversations, documents, chunks content, feedback, query logs
-- **Single Docker Compose** — Entire stack (API, Qdrant, PostgreSQL, frontend) in one `docker-compose.yml`. Deploy anywhere with `docker compose up`
-- **Embedded Caching** — In-memory semantic cache, no Redis dependency for MVP
+  Step 2 — Semantic Cache Check (core/caching/semantic_cache.py)
 
----
+  - Purpose: Return cached responses for similar/identical queries (50-70% cost savings).
+  - 3-layer cache:
+    - Layer 1 (Exact): SHA-256 hash lookup — instant match for identical queries.
+    - Layer 2 (Semantic): Embeds the query, computes cosine similarity against cached queries (threshold default 0.92).
+    - Layer 3 (Cross-encoder validation): Optional cross-encoder to filter false positive cache hits.
+  - If cache hit → return immediately (skipping all retrieval/generation steps).
+  - Backed by Redis (persistent) or in-memory (fallback).
 
-### 6. User Experience — Intrusive UI
+  Step 3 — Query Transformation (core/query/transformer.py)
 
-**Problem:** Full-page chat interfaces disrupt user workflows. Need non-intrusive integration.
+  - Purpose: Generate 3-5 query variations for multi-query retrieval (+15-25% recall improvement).
+  - Rule-based transformer: Extracts keywords, generates question-form variations, applies synonym replacement. Fast, no
+   LLM call.
+  - LLM-based transformer (optional): Uses LangChain to generate semantically diverse variations. Also supports HyDE
+  (Hypothetical Document Embeddings) — generates a hypothetical answer passage and uses its embedding for search.
 
-**Solutions:**
-- **Sidebar Widget Pattern** — Floating action button + slide-out panel. Overlays existing app without navigation changes
-- **Zustand State Management** — Lightweight store for open/close state, message history. No prop drilling
-- **Real-time Streaming Display** — Tokens render as they arrive. Users see progress immediately
+  Step 4 — Conversation History Compression (core/memory/conversation.py)
 
----
+  - Purpose: Maintain conversation context while reducing token usage (60-70% reduction).
+  - Sliding window strategy: Last 3 messages kept in full; older messages compressed into a truncated summary.
+  - Prevents sending full history with every request.
 
-## Tech Stack
+  Step 5 — Hybrid Retrieval (core/retrieval/hybrid_search.py)
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14, React, Tailwind CSS, Zustand |
-| Backend | FastAPI, SQLAlchemy, LangChain |
-| Vector DB | Qdrant (HNSW indexing) |
-| Relational DB | PostgreSQL (conversations, documents, feedback) |
-| LLM | OpenAI GPT-4 / GPT-3.5 (routed) |
-| Embeddings | text-embedding-3-small |
-| Infrastructure | Docker Compose |
+  - Purpose: Retrieve relevant chunks using both semantic and keyword search (+40% quality vs vector-only).
+  - For each query variation (from Step 3):
+    - Vector Search (core/retrieval/vector_search.py): Embeds query, searches vector DB for semantically similar chunks
+  (top-100).
+    - BM25 Search (core/retrieval/bm25_search.py): Keyword search for exact term matches.
+    - Both run in parallel using asyncio.gather.
+  - Score Fusion: Combines scores using Score = (Vector × 5) + (BM25 × 3) + (Recency × 0.2). Also supports Reciprocal
+  Rank Fusion (RRF). Scores are min-max normalized before fusion.
+  - Results are deduplicated across query variations, sorted by combined score.
 
-## Results
+  Step 6 — Cross-Encoder Reranking (core/retrieval/reranker.py)
 
-| Metric | Value |
-|--------|-------|
-| Avg. Response Time | <2s (cached: <100ms) |
-| Retrieval Accuracy | 85%+ relevance |
-| Cost Reduction | ~60% via routing + caching |
-| Deployment | Single docker-compose |
+  - Purpose: Rerank top-100 retrieval candidates down to top-10 with higher precision (+5-10%).
+  - Uses sentence-transformers CrossEncoder models (default: ms-marco-MiniLM-L-6-v2).
+  - Cross-encoders are more accurate than bi-encoders because they process query+document together with cross-attention.
+  - Latency budget: 15-20ms. Model presets: fast (TinyBERT), balanced (MiniLM), accurate (BGE-reranker).
 
-## Future Improvements
+  Step 7 — Relevance Filtering (core/retrieval/relevance.py)
 
-- Multi-tenant support with user isolation
-- Hybrid search (semantic + keyword BM25)
-- Document versioning and incremental updates
-- Analytics dashboard for query patterns
+  - Purpose: Drop low-quality chunks below a relevance threshold to reduce noise (~30% filtered out).
+  - Default: drop chunks scoring below 0.6 (after min-max normalization).
+  - Strategies: threshold (fixed cutoff), dynamic (mean - std), top_k, percentile.
+  - Guarantees at least min_chunks=1 are always returned.
+
+  Step 8 — Context Building & Prompt Construction
+
+  - Context Builder (core/generation/context_builder.py): Dynamically sizes context based on query complexity:
+    - Simple queries → 800 tokens of context (40% token savings).
+    - Complex queries → 4000 tokens (full context).
+  - Prompt Manager (core/generation/prompt_manager.py): Builds compressed prompts (2800→900 tokens target, 60-70%
+  reduction). Uses minimal templates. Edge cases (no context, out-of-scope, ambiguous) get dedicated short prompts.
+  History is included only when present.
+
+  Step 9 — LLM Generation (core/generation/llm_client.py)
+
+  - Purpose: Generate the final response using the selected model.
+  - Supports OpenRouter, OpenAI, and local LLM providers.
+  - Executes the tier-based model selection from Step 1.
+  - Uses httpx for async HTTP calls with retry (exponential backoff via tenacity).
+  - Supports both streaming (SSE) and non-streaming responses.
+  - Automatic fallback to Tier 1 model if the primary model fails.
+
+  Step 10 — Cache, Log & Return
+
+  - Cache response: Stores the query-response pair in semantic cache for future hits.
+  - Update conversation memory: Adds the user message and assistant response to the sliding window.
+  - Log everything: Query log saved to PostgreSQL (query, type, latency, model used, cache hit, etc.). Conversation
+  messages saved separately.
+  - Metrics recording: Tracks routing distribution, retrieval latency, generation latency, cache hit rates.
+  - Return response with sources (top-5 source chunks with content preview and scores).
+
+  ---
+  Supporting Infrastructure
+  Module: main.py
+  Purpose: FastAPI app with lifespan (startup/shutdown), CORS, request logging middleware, health checks
+  ────────────────────────────────────────
+  Module: core/config.py
+  Purpose: Centralized pydantic-settings config loaded from .env — embedding, chunking, retrieval, cache, LLM, context,
+    monitoring, database
+  ────────────────────────────────────────
+  Module: api/v1/dependencies.py
+  Purpose: DI for DB sessions, API key auth, rate limiting (in-memory sliding window)
+  ────────────────────────────────────────
+  Module: api/v1/endpoints/feedback.py
+  Purpose: Thumbs up/down + 1-5 star ratings, exports evaluation datasets for RAGAS
+  ────────────────────────────────────────
+  Module: monitoring/
+  Purpose: Structured JSON logging, metrics collection, distributed tracing
+  ────────────────────────────────────────
+  Module: evaluation/
+  Purpose: Generation evaluation, LLM-as-judge, retrieval evaluation with benchmark test sets
+  ────────────────────────────────────────
+  Module: db/
+  Purpose: SQLAlchemy async models for conversations, messages, documents, chunks, query logs, feedback
