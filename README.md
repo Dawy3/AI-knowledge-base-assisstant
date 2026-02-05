@@ -4,8 +4,7 @@
 ![ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/5357a9e0-d505-42c1-b677-e72f9d412726)
 
 
-
-#AI Knowledge Assistant
+# AI Knowledge Assistant
 
 A production-grade RAG (Retrieval-Augmented Generation) system that lets you upload documents and ask questions answered directly from your knowledge base. It combines hybrid search (vector + BM25), cross-encoder reranking, semantic caching, and 3-tier model routing to deliver accurate, cost-optimized responses with source citations.
 
