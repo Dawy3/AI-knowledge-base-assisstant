@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { User, Bot, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Clock, Zap, Database } from 'lucide-react'
+import { User, Bot, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Zap, Database } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { clsx } from 'clsx'
 import type { ConversationMessage } from '@/lib/store'
@@ -84,12 +84,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
               <span className="flex items-center gap-1">
                 <Zap className="w-3 h-3" />
                 {message.model}
-              </span>
-            )}
-            {message.latencyMs && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {Math.round(message.latencyMs)}ms
               </span>
             )}
             {message.cached && (
