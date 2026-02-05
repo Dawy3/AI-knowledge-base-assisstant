@@ -1,4 +1,9 @@
-# AI Knowledge Assistant
+
+# 
+
+Uploading Video Project 1.mp4…
+
+AI Knowledge Assistant
 
 A production-grade RAG (Retrieval-Augmented Generation) system that lets you upload documents and ask questions answered directly from your knowledge base. It combines hybrid search (vector + BM25), cross-encoder reranking, semantic caching, and 3-tier model routing to deliver accurate, cost-optimized responses with source citations.
 
